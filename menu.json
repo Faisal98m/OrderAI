@@ -1,0 +1,56 @@
+{
+  "restaurant": "OrderAI Burger House",
+  "currency": "GBP",
+  "currency_symbol": "£",
+  "categories": {
+    "burgers": [
+      {
+        "id": "B001",
+        "name": "Classic Chicken Burger",
+        "price": 7.95,
+        "description": "Grilled chicken breast, lettuce, tomato and house sauce"
+      },
+      {
+        "id": "B002",
+        "name": "Spicy Chicken Burger",
+        "price": 8.45,
+        "description": "Spicy chicken breast, lettuce, jalapenos and chilli sauce"
+      },
+      {
+        "id": "B003",
+        "name": "Classic Beef Burger",
+        "price": 8.95,
+        "description": "Beef patty, cheese, lettuce, onions and burger sauce"
+      }
+    ],
+    "sides": [
+      {
+        "id": "S001",
+        "name": "Fries",
+        "price": 2.95,
+        "description": "Crispy salted fries"
+      },
+      {
+        "id": "S002",
+        "name": "Onion Rings",
+        "price": 3.45,
+        "description": "Crispy battered onion rings"
+      }
+    ],
+    "drinks": [
+      {
+        "id": "D001",
+        "name": "Coca-Cola",
+        "aliases": ["coke", "cola", "coca cola"],
+        "price": 1.95,
+        "description": "330ml can"
+      },
+      {
+        "id": "D002",
+        "name": "Water",
+        "price": 1.50,
+        "description": "500ml bottle"
+      }
+    ]
+  }
+}

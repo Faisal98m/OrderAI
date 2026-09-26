@@ -8,6 +8,7 @@ from tools import (
     search_menu,
     resolve_menu_item,
     add_item_to_order,
+    continue_pending_action,
     remove_from_order,
     get_order
 )
@@ -115,6 +116,25 @@ tools = [
             "additionalProperties": False
         }
     },
+    {
+    "type": "function",
+    "name": "continue_pending_action",
+    "description": """
+    Continue an unfinished order action after the customer provides
+    clarification about which item they mean.
+    """,
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "clarification": {
+                "type": "string",
+                "description": "The customer's clarification, such as beef or spicy chicken."
+            }
+        },
+        "required": ["clarification"],
+        "additionalProperties": False
+    }
+},
 ]
 
 
@@ -147,6 +167,11 @@ def execute_tool(name, arguments):
     if name == "resolve_menu_item":
         return resolve_menu_item(
         arguments["search_term"]
+    )
+    
+    if name == "continue_pending_action":
+        return continue_pending_action(
+        arguments["clarification"]
     )
 
     return {
@@ -213,6 +238,13 @@ def run_agent(user_message, previous_response_id=None):
         item could not be found.
         
         Never choose one of multiple matches yourself.
+        
+        If an add request was previously ambiguous and you asked the customer
+        to clarify which item they meant, use continue_pending_action with
+        their clarification.
+
+        Do not create a new add request when the customer is answering a
+        clarification question about an unfinished add request.
 
         """,
         "input": user_message,

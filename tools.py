@@ -4,6 +4,32 @@ order = {
     "items": []
 }
 
+pending_action = {
+    "action": None,
+    "quantity": None,
+    "search_term": None
+}
+
+
+def get_pending_action():
+    return pending_action
+
+
+def set_pending_action(action, quantity, search_term):
+    pending_action["action"] = action
+    pending_action["quantity"] = quantity
+    pending_action["search_term"] = search_term
+
+    return pending_action
+
+
+def clear_pending_action():
+    pending_action["action"] = None
+    pending_action["quantity"] = None
+    pending_action["search_term"] = None
+
+    return pending_action
+
 
 def load_menu():
     with open("menu.json", "r") as file:
@@ -103,17 +129,26 @@ def add_item_to_order(search_term, quantity=1):
         }
 
     if resolution["status"] == "ambiguous":
-        return {
-            "status": "ambiguous",
-            "matches": resolution["matches"]
-        }
 
+     set_pending_action(
+        action="add",
+        quantity=quantity,
+        search_term=search_term
+    )
+
+     return {
+        "status": "ambiguous",
+        "matches": resolution["matches"],
+        "pending_action": get_pending_action()
+    }
     item = resolution["item"]
 
     updated_order = add_to_order(
         item["id"],
         quantity
     )
+
+    clear_pending_action()
 
     return {
         "status": "added",
@@ -177,4 +212,31 @@ def remove_from_order(item_id, quantity=1):
 
     return {
         "error": "Item not found in order"
+    }
+    
+    
+def continue_pending_action(clarification):
+    """
+    Continue an unfinished action using the customer's clarification.
+    """
+
+    if pending_action["action"] is None:
+        return {
+            "status": "no_pending_action"
+        }
+
+    action = pending_action["action"]
+    quantity = pending_action["quantity"]
+    original_search = pending_action["search_term"]
+
+    combined_search = f"{clarification} {original_search}"
+
+    if action == "add":
+        return add_item_to_order(
+            combined_search,
+            quantity
+        )
+
+    return {
+        "status": "unsupported_action"
     }

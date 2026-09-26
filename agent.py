@@ -6,7 +6,8 @@ from openai import OpenAI
 
 from tools import (
     search_menu,
-    add_to_order,
+    resolve_menu_item,
+    add_item_to_order,
     remove_from_order,
     get_order
 )
@@ -42,21 +43,25 @@ tools = [
     },
     {
         "type": "function",
-        "name": "add_to_order",
-        "description": "Add a confirmed menu item to the customer's current order.",
+        "name": "add_item_to_order",
+        "description": """
+        Safely add a menu item to the customer's order.
+        This tool resolves the customer's description before changing
+        the order and will refuse to add an ambiguous or unknown item.
+        """,
         "parameters": {
             "type": "object",
             "properties": {
-                "item_id": {
+                "search_term": {
                     "type": "string",
-                    "description": "The exact menu item ID, such as B002."
+                    "description": "The customer's description of the menu item."
                 },
                 "quantity": {
                     "type": "integer",
                     "description": "Number of this item to add."
                 }
             },
-            "required": ["item_id", "quantity"],
+            "required": ["search_term", "quantity"],
             "additionalProperties": False
         }
     },
@@ -89,7 +94,27 @@ tools = [
             "properties": {},
             "additionalProperties": False
         }
-    }
+    },
+    {
+        "type": "function",
+        "name": "resolve_menu_item",
+        "description": """
+        Resolve a customer's description of a menu item before changing
+        the order. Returns resolved if exactly one menu item matches,
+        ambiguous if multiple items match, or not_found if none match.
+        """,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "search_term": {
+                    "type": "string",
+                    "description": "The customer's description of the menu item."
+                }
+            },
+            "required": ["search_term"],
+            "additionalProperties": False
+        }
+    },
 ]
 
 
@@ -104,9 +129,9 @@ def execute_tool(name, arguments):
             arguments["search_term"]
         )
 
-    if name == "add_to_order":
-        return add_to_order(
-            arguments["item_id"],
+    if name == "add_item_to_order":
+        return add_item_to_order(
+            arguments["search_term"],
             arguments["quantity"]
         )
 
@@ -118,6 +143,11 @@ def execute_tool(name, arguments):
 
     if name == "get_order":
         return get_order()
+    
+    if name == "resolve_menu_item":
+        return resolve_menu_item(
+        arguments["search_term"]
+    )
 
     return {
         "error": f"Unknown tool: {name}"
@@ -169,6 +199,21 @@ def run_agent(user_message, previous_response_id=None):
         remove_from_order.
 
         Only perform the action once the intended item is clear.
+        
+        Use add_item_to_order when the customer asks to add or order
+        a menu item.
+
+        The tool validates the customer's description before changing
+        the order.
+
+        If the tool returns "ambiguous", ask the customer which of the
+        matching items they mean.
+
+        If the tool returns "not_found", tell the customer the requested
+        item could not be found.
+        
+        Never choose one of multiple matches yourself.
+
         """,
         "input": user_message,
         "tools": tools

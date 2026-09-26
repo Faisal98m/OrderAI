@@ -58,6 +58,69 @@ def search_menu(search_term):
 
     return results
 
+
+def resolve_menu_item(search_term):
+    """
+    Resolve a customer's description against the menu.
+
+    Returns:
+    - not_found if there are no matches
+    - resolved if exactly one item matches
+    - ambiguous if multiple items match
+    """
+
+    matches = search_menu(search_term)
+
+    if len(matches) == 0:
+        return {
+            "status": "not_found",
+            "matches": []
+        }
+
+    if len(matches) == 1:
+        return {
+            "status": "resolved",
+            "item": matches[0]
+        }
+
+    return {
+        "status": "ambiguous",
+        "matches": matches
+    }
+    
+def add_item_to_order(search_term, quantity=1):
+    """
+    Safely resolve a customer's menu description before
+    changing the order.
+    """
+
+    resolution = resolve_menu_item(search_term)
+
+    if resolution["status"] == "not_found":
+        return {
+            "status": "not_found",
+            "message": "No matching menu item was found."
+        }
+
+    if resolution["status"] == "ambiguous":
+        return {
+            "status": "ambiguous",
+            "matches": resolution["matches"]
+        }
+
+    item = resolution["item"]
+
+    updated_order = add_to_order(
+        item["id"],
+        quantity
+    )
+
+    return {
+        "status": "added",
+        "item": item,
+        "order": updated_order
+    }
+
 def add_to_order(item_id, quantity=1):
     menu = load_menu()
 

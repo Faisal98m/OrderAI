@@ -4,24 +4,43 @@
   "currency_symbol": "£",
   "categories": {
     "burgers": [
-      {
-        "id": "B001",
-        "name": "Classic Chicken Burger",
-        "price": 7.95,
-        "description": "Grilled chicken breast, lettuce, tomato and house sauce"
-      },
-      {
-        "id": "B002",
-        "name": "Spicy Chicken Burger",
-        "price": 8.45,
-        "description": "Spicy chicken breast, lettuce, jalapenos and chilli sauce"
-      },
-      {
-        "id": "B003",
-        "name": "Classic Beef Burger",
-        "price": 8.95,
-        "description": "Beef patty, cheese, lettuce, onions and burger sauce"
-      }
+             {
+            "id": "B001",
+            "name": "Classic Chicken Burger",
+            "price": 7.95,
+            "description": "Grilled chicken breast, lettuce, tomato and house sauce",
+            "ingredients": [
+                "grilled chicken breast",
+                "lettuce",
+                "tomato",
+                "house sauce"
+            ]
+            },
+            {
+            "id": "B002",
+            "name": "Spicy Chicken Burger",
+            "price": 8.45,
+            "description": "Spicy chicken breast, lettuce, jalapenos and chilli sauce",
+            "ingredients": [
+                "spicy chicken breast",
+                "lettuce",
+                "jalapenos",
+                "chilli sauce"
+            ]
+            },
+            {
+            "id": "B003",
+            "name": "Classic Beef Burger",
+            "price": 8.95,
+            "description": "Beef patty, cheese, lettuce, onions and burger sauce",
+            "ingredients": [
+                "beef patty",
+                "cheese",
+                "lettuce",
+                "onions",
+                "burger sauce"
+            ]
+            }
     ],
     "sides": [
       {

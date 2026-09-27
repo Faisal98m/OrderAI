@@ -10,7 +10,8 @@ from tools import (
     add_item_to_order,
     continue_pending_action,
     remove_from_order,
-    get_order
+    get_order,
+    modify_order_item
 )
 
 
@@ -26,6 +27,7 @@ client = OpenAI(
 # --------------------------------------------------
 
 tools = [
+    
     {
         "type": "function",
         "name": "search_menu",
@@ -69,7 +71,14 @@ tools = [
     {
         "type": "function",
         "name": "remove_from_order",
-        "description": "Remove a quantity of an item from the customer's current order.",
+        "description": """
+            Remove an entire menu item or quantity of that item from the customer's
+            order. Use this only when the customer wants to remove the whole item,
+            for example 'remove my burger' or 'take one Coke off my order'.
+
+            Do not use this tool for ingredient changes such as 'no lettuce',
+            'remove onions', or 'without sauce'. Use modify_order_item for those.
+        """,
         "parameters": {
             "type": "object",
             "properties": {
@@ -117,24 +126,56 @@ tools = [
         }
     },
     {
-    "type": "function",
-    "name": "continue_pending_action",
-    "description": """
-    Continue an unfinished order action after the customer provides
-    clarification about which item they mean.
-    """,
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "clarification": {
-                "type": "string",
-                "description": "The customer's clarification, such as beef or spicy chicken."
+        "type": "function",
+        "name": "continue_pending_action",
+        "description": """
+        Continue an unfinished order action after the customer provides
+        clarification about which item they mean.
+        """,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "clarification": {
+                    "type": "string",
+                    "description": "The customer's clarification, such as beef or spicy chicken."
+                }
+            },
+            "required": ["clarification"],
+            "additionalProperties": False
+        }
+    },
+    {
+            "type": "function",
+            "name": "modify_order_item",
+            "description": """
+            Modify an item already in the customer's order by removing an ingredient.
+
+            Use this for ingredient-level requests such as:
+            'no lettuce',
+            'remove the onions',
+            'without jalapenos',
+            'no sauce on my burger'.
+
+            This changes the ingredients of an order item. It does not remove
+            the whole menu item from the order.
+            """,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_term": {
+                        "type": "string",
+                        "description": "The order item the customer wants to modify."
+                    },
+                    "ingredient": {
+                        "type": "string",
+                        "description": "The ingredient the customer wants removed."
+                    }
+                },
+                "required": ["search_term", "ingredient"],
+                "additionalProperties": False
             }
-        },
-        "required": ["clarification"],
-        "additionalProperties": False
-    }
 },
+    
 ]
 
 
@@ -172,6 +213,12 @@ def execute_tool(name, arguments):
     if name == "continue_pending_action":
         return continue_pending_action(
         arguments["clarification"]
+    )
+    
+    if name == "modify_order_item":
+        return modify_order_item(
+        arguments["search_term"],
+        arguments["ingredient"]
     )
 
     return {
@@ -245,6 +292,17 @@ def run_agent(user_message, previous_response_id=None):
 
         Do not create a new add request when the customer is answering a
         clarification question about an unfinished add request.
+        
+        Use modify_order_item when the customer asks to remove an
+        ingredient from an item already in their order.
+
+        If the tool returns "ambiguous", ask which order item they mean.
+
+        If the tool returns "ingredient_not_found", explain that the
+        ingredient is not listed on that menu item.
+
+        Never claim an order modification was made unless the tool
+        successfully returns "modified".
 
         """,
         "input": user_message,

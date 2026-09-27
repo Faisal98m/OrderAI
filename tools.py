@@ -11,6 +11,7 @@ pending_action = {
 }
 
 
+
 def get_pending_action():
     return pending_action
 
@@ -173,7 +174,8 @@ def add_to_order(item_id, quantity=1):
                     "id": item["id"],
                     "name": item["name"],
                     "price": item["price"],
-                    "quantity": quantity
+                    "quantity": quantity,
+                    "modifiers": []
                 })
 
                 return order
@@ -240,3 +242,98 @@ def continue_pending_action(clarification):
     return {
         "status": "unsupported_action"
     }
+    
+    
+def remove_ingredient_from_order_item(item_id, ingredient):
+    menu = load_menu()
+
+    ingredient = ingredient.lower().strip()
+
+    # Find the menu item
+    menu_item = None
+
+    for category_name, items in menu["categories"].items():
+        for item in items:
+            if item["id"] == item_id:
+                menu_item = item
+                break
+
+    if menu_item is None:
+        return {
+            "status": "item_not_found"
+        }
+
+    ingredients = [
+        item_ingredient.lower()
+        for item_ingredient in menu_item.get("ingredients", [])
+    ]
+
+    # Validate the requested modification
+    if ingredient not in ingredients:
+        return {
+            "status": "ingredient_not_found",
+            "item": menu_item["name"],
+            "ingredient": ingredient
+        }
+
+    # Find the item in the customer's actual order
+    for order_item in order["items"]:
+        if order_item["id"] == item_id:
+
+            modifier = {
+                "type": "remove",
+                "ingredient": ingredient
+            }
+
+            if modifier not in order_item["modifiers"]:
+                order_item["modifiers"].append(modifier)
+
+            return {
+                "status": "modified",
+                "item": order_item
+            }
+
+    return {
+        "status": "item_not_in_order"
+    }
+    
+    
+
+def modify_order_item(search_term, ingredient):
+    """
+    Safely remove an ingredient from an item in the current order.
+    """
+
+    search_term = search_term.lower().strip()
+    ingredient = ingredient.lower().strip()
+
+    matches = []
+
+    # Search only the customer's current order
+    for order_item in order["items"]:
+
+        searchable_text = order_item["name"].lower()
+
+        if search_term in searchable_text:
+            matches.append(order_item)
+
+    # No matching item in the order
+    if len(matches) == 0:
+        return {
+            "status": "item_not_found"
+        }
+
+    # More than one possible target
+    if len(matches) > 1:
+        return {
+            "status": "ambiguous",
+            "matches": matches
+        }
+
+    # Exactly one target
+    item = matches[0]
+
+    return remove_ingredient_from_order_item(
+        item["id"],
+        ingredient
+    )

@@ -11,7 +11,9 @@ from tools import (
     continue_pending_action,
     remove_from_order,
     get_order,
-    modify_order_item
+    modify_order_item,
+    customize_order_item,
+    customize_order_line
 )
 
 
@@ -175,6 +177,83 @@ tools = [
                 "additionalProperties": False
             }
 },
+    {
+    "type": "function",
+    "name": "customize_order_item",
+    "description": """
+    Remove an ingredient from some or all of a menu item already in the
+    customer's order.
+
+    Use this when the customer specifies how many items should receive
+    the modification, for example:
+    'one burger with no lettuce',
+    'remove onions from two of my burgers',
+    'only one of the classic chicken burgers should have no lettuce'.
+
+    The tool safely handles splitting order lines when only part of a
+    quantity should be modified.
+    """,
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "search_term": {
+                "type": "string",
+                "description": "The order item the customer wants to modify."
+            },
+            "ingredient": {
+                "type": "string",
+                "description": "The ingredient to remove."
+            },
+            "quantity": {
+                "type": "integer",
+                "description": "How many of the item should receive this modification."
+            }
+        },
+        "required": [
+            "search_term",
+            "ingredient",
+            "quantity"
+        ],
+        "additionalProperties": False
+    }
+},
+    {
+    "type": "function",
+    "name": "customize_order_line",
+    "description": """
+    Modify a specific existing order line after the correct line has
+    already been identified from the customer's current order.
+
+    Use this when multiple order lines contain the same menu item but
+    have different configurations, such as one Classic Chicken Burger
+    with no lettuce and four standard Classic Chicken Burgers.
+
+    Use the exact line_id from the current order. Do not invent a line_id.
+    """,
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "line_id": {
+                "type": "string",
+                "description": "The exact line_id of the order line to modify."
+            },
+            "ingredient": {
+                "type": "string",
+                "description": "The ingredient to remove."
+            },
+            "quantity": {
+                "type": "integer",
+                "description": "How many items from this order line should receive the modification."
+            }
+        },
+        "required": [
+            "line_id",
+            "ingredient",
+            "quantity"
+        ],
+        "additionalProperties": False
+    }
+}
     
 ]
 
@@ -220,7 +299,20 @@ def execute_tool(name, arguments):
         arguments["search_term"],
         arguments["ingredient"]
     )
+        
+    if name == "customize_order_item":
+        return customize_order_item(
+        arguments["search_term"],
+        arguments["ingredient"],
+        arguments["quantity"]
+    )
 
+    if name == "customize_order_line":
+        return customize_order_line(
+            arguments["line_id"],
+            arguments["ingredient"],
+            arguments["quantity"]
+        )
     return {
         "error": f"Unknown tool: {name}"
     }

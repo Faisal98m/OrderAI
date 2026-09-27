@@ -1,4 +1,6 @@
 import json
+import uuid
+
 
 order = {
     "items": []
@@ -163,15 +165,19 @@ def add_to_order(item_id, quantity=1):
     for category_name, items in menu["categories"].items():
         for item in items:
 
+            # item is from menu.json
             if item["id"] == item_id:
 
                 for order_item in order["items"]:
-                    if order_item["id"] == item_id:
+
+                    # order_item is from the customer's order
+                    if order_item["item_id"] == item_id:
                         order_item["quantity"] += quantity
                         return order
 
                 order["items"].append({
-                    "id": item["id"],
+                    "line_id": str(uuid.uuid4()),
+                    "item_id": item["id"],
                     "name": item["name"],
                     "price": item["price"],
                     "quantity": quantity,
@@ -180,9 +186,7 @@ def add_to_order(item_id, quantity=1):
 
                 return order
 
-    return {
-        "error": "Item not found"
-    }
+    return {"error": "Item not found"}
 
 
 def get_order():
@@ -203,7 +207,7 @@ def remove_from_order(item_id, quantity=1):
 
     for item in order["items"]:
 
-        if item["id"] == item_id:
+        if item["item_id"] == item_id:
 
             item["quantity"] -= quantity
 
@@ -244,17 +248,30 @@ def continue_pending_action(clarification):
     }
     
     
-def remove_ingredient_from_order_item(item_id, ingredient):
+def remove_ingredient_from_order_item(line_id, ingredient):
     menu = load_menu()
 
     ingredient = ingredient.lower().strip()
 
-    # Find the menu item
+    # Find the exact order line
+    target_line = None
+
+    for order_item in order["items"]:
+        if order_item["line_id"] == line_id:
+            target_line = order_item
+            break
+
+    if target_line is None:
+        return {
+            "status": "line_not_found"
+        }
+
+    # Find the corresponding menu item
     menu_item = None
 
     for category_name, items in menu["categories"].items():
         for item in items:
-            if item["id"] == item_id:
+            if item["id"] == target_line["item_id"]:
                 menu_item = item
                 break
 
@@ -263,12 +280,12 @@ def remove_ingredient_from_order_item(item_id, ingredient):
             "status": "item_not_found"
         }
 
+    # Validate that the ingredient actually exists
     ingredients = [
         item_ingredient.lower()
         for item_ingredient in menu_item.get("ingredients", [])
     ]
 
-    # Validate the requested modification
     if ingredient not in ingredients:
         return {
             "status": "ingredient_not_found",
@@ -276,27 +293,19 @@ def remove_ingredient_from_order_item(item_id, ingredient):
             "ingredient": ingredient
         }
 
-    # Find the item in the customer's actual order
-    for order_item in order["items"]:
-        if order_item["id"] == item_id:
+    # Apply the modification only to this exact order line
+    modifier = {
+        "type": "remove",
+        "ingredient": ingredient
+    }
 
-            modifier = {
-                "type": "remove",
-                "ingredient": ingredient
-            }
-
-            if modifier not in order_item["modifiers"]:
-                order_item["modifiers"].append(modifier)
-
-            return {
-                "status": "modified",
-                "item": order_item
-            }
+    if modifier not in target_line["modifiers"]:
+        target_line["modifiers"].append(modifier)
 
     return {
-        "status": "item_not_in_order"
+        "status": "modified",
+        "item": target_line
     }
-    
     
 
 def modify_order_item(search_term, ingredient):
@@ -334,6 +343,266 @@ def modify_order_item(search_term, ingredient):
     item = matches[0]
 
     return remove_ingredient_from_order_item(
-        item["id"],
+        item["line_id"],
         ingredient
     )
+    
+def split_order_line(line_id, split_quantity, copy_modifiers=True):
+    """
+    Split part of an order line into a new independent order line.
+    """
+
+    for order_item in order["items"]:
+        if order_item["line_id"] == line_id:
+
+            if split_quantity <= 0:
+                return {
+                    "status": "invalid_quantity"
+                }
+
+            if split_quantity >= order_item["quantity"]:
+                return {
+                    "status": "invalid_quantity"
+                }
+
+            # Reduce the original line
+            order_item["quantity"] -= split_quantity
+
+            # Create a new independent line
+            new_line = {
+                "line_id": str(uuid.uuid4()),
+                "item_id": order_item["item_id"],
+                "name": order_item["name"],
+                "price": order_item["price"],
+                "quantity": split_quantity,
+                "modifiers": (
+                list(order_item["modifiers"])
+                if copy_modifiers
+                else [])
+            }
+
+            order["items"].append(new_line)
+
+            return {
+                "status": "split",
+                "original_line": order_item,
+                "new_line": new_line
+            }
+
+    return {
+        "status": "line_not_found"
+    }
+    
+    
+
+def customize_order_item(search_term, ingredient, quantity=None):
+    """
+    Remove an ingredient from some or all of a matching order item.
+    """
+
+    search_term = search_term.lower().strip()
+    ingredient = ingredient.lower().strip()
+
+    matches = []
+
+    # Find matching order lines
+    for order_item in order["items"]:
+        if search_term in order_item["name"].lower():
+            matches.append(order_item)
+
+    if len(matches) == 0:
+        return {
+            "status": "item_not_found"
+        }
+
+    if len(matches) > 1:
+        return {
+            "status": "ambiguous",
+            "matches": matches
+        }
+
+    target_line = matches[0]
+
+    modifier = {
+        "type": "remove",
+        "ingredient": ingredient
+    }
+
+    modifier_already_applied = modifier in target_line["modifiers"]
+
+
+# Validate the ingredient before changing any order state
+    menu = load_menu()
+
+    menu_item = None
+
+    for category_name, items in menu["categories"].items():
+        for item in items:
+            if item["id"] == target_line["item_id"]:
+                menu_item = item
+                break
+
+    if menu_item is None:
+        return {
+            "status": "item_not_found"
+        }
+
+    ingredients = [
+        item_ingredient.lower()
+        for item_ingredient in menu_item.get("ingredients", [])
+    ]
+
+    if ingredient not in ingredients:
+        return {
+            "status": "ingredient_not_found",
+            "item": menu_item["name"],
+            "ingredient": ingredient
+        }
+        
+
+    # No quantity specified = modify the whole line
+    if quantity is None:
+        return remove_ingredient_from_order_item(
+            target_line["line_id"],
+            ingredient
+        )
+
+    if quantity <= 0 or quantity > target_line["quantity"]:
+        return {
+            "status": "invalid_quantity"
+        }
+
+    # The whole line already has this modification, but the customer
+    # now wants it to apply to only part of the quantity.
+    if (
+        modifier_already_applied
+        and quantity is not None
+        and quantity < target_line["quantity"]
+    ):
+        standard_quantity = target_line["quantity"] - quantity
+
+        split_result = split_order_line(
+            target_line["line_id"],
+            standard_quantity,
+            copy_modifiers=False
+        )
+
+        if split_result["status"] != "split":
+            return split_result
+
+        return {
+            "status": "modified",
+            "modified_line": target_line,
+            "standard_line": split_result["new_line"],
+            "order": get_order()
+        }
+
+
+    # Customer wants every item on this line modified
+    if quantity == target_line["quantity"]:
+        return remove_ingredient_from_order_item(
+            target_line["line_id"],
+            ingredient
+        )
+
+    # Customer only wants some of them modified
+    split_result = split_order_line(
+        target_line["line_id"],
+        quantity
+    )
+
+    if split_result["status"] != "split":
+        return split_result
+
+    new_line = split_result["new_line"]
+
+    return remove_ingredient_from_order_item(
+        new_line["line_id"],
+        ingredient
+    )
+    
+
+
+
+
+def customize_order_line(line_id, ingredient, quantity=None):
+    """
+    Remove an ingredient from a specific order line.
+
+    The line has already been identified, so this function does not
+    perform fuzzy product matching.
+    """
+
+    target_line = None
+
+    for order_item in order["items"]:
+        if order_item["line_id"] == line_id:
+            target_line = order_item
+            break
+
+    if target_line is None:
+        return {"status": "line_not_found"}
+
+    menu = load_menu()
+
+    menu_item = None
+
+    for category_name, items in menu["categories"].items():
+        for item in items:
+            if item["id"] == target_line["item_id"]:
+                menu_item = item
+                break
+
+    if menu_item is None:
+        return {"status": "item_not_found"}
+
+    ingredient = ingredient.lower().strip()
+
+    ingredients = [
+        item_ingredient.lower()
+        for item_ingredient in menu_item.get("ingredients", [])
+    ]
+
+    if ingredient not in ingredients:
+        return {
+            "status": "ingredient_not_found",
+            "item": menu_item["name"],
+            "ingredient": ingredient
+        }
+
+    if quantity is None:
+        quantity = target_line["quantity"]
+
+    if quantity <= 0 or quantity > target_line["quantity"]:
+        return {"status": "invalid_quantity"}
+
+    if quantity == target_line["quantity"]:
+        result = remove_ingredient_from_order_item(
+            target_line["line_id"],
+            ingredient
+        )
+
+        return {
+            "status": result["status"],
+            "order": get_order()
+        }
+
+    split_result = split_order_line(
+        target_line["line_id"],
+        quantity
+    )
+
+    if split_result["status"] != "split":
+        return split_result
+
+    new_line = split_result["new_line"]
+
+    result = remove_ingredient_from_order_item(
+        new_line["line_id"],
+        ingredient
+    )
+
+    return {
+        "status": result["status"],
+        "order": get_order()
+    }

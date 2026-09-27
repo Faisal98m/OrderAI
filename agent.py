@@ -13,7 +13,11 @@ from tools import (
     get_order,
     modify_order_item,
     customize_order_item,
-    customize_order_line
+    customize_order_line,
+    validate_order, 
+    confirm_order,
+    submit_order
+    
 )
 
 
@@ -253,6 +257,54 @@ tools = [
         ],
         "additionalProperties": False
     }
+},
+    {
+    "type": "function",
+    "name": "validate_order",
+    "description": """
+    Validate the customer's current order when they indicate they are
+    finished ordering and want to proceed.
+
+    This checks whether the order is ready to be presented for final
+    confirmation. It does not confirm or submit the order.
+    """,
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False
+    }
+},
+{
+    "type": "function",
+    "name": "confirm_order",
+    "description": """
+    Confirm the customer's order only after the final order has been
+    validated and presented to the customer, and the customer explicitly
+    confirms that they want to proceed.
+
+    This does not submit the order.
+    """,
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False
+    }
+},
+{
+    "type": "function",
+    "name": "submit_order",
+    "description": """
+    Submit an order that has already been explicitly confirmed.
+
+    This tool must only be used after confirm_order has successfully
+    changed the order status to confirmed. The application will reject
+    submission from any other state.
+    """,
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False
+    }
 }
     
 ]
@@ -263,6 +315,8 @@ tools = [
 # --------------------------------------------------
 
 def execute_tool(name, arguments):
+    print(f"[TOOL CALL] {name} {arguments}")
+
 
     if name == "search_menu":
         return search_menu(
@@ -313,8 +367,18 @@ def execute_tool(name, arguments):
             arguments["ingredient"],
             arguments["quantity"]
         )
+    if name == "validate_order":
+        return validate_order()
+
+    if name == "confirm_order":
+        return confirm_order()
+
+    if name == "submit_order":
+        return submit_order()
+    
     return {
         "error": f"Unknown tool: {name}"
+    
     }
 
 

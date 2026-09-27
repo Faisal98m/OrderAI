@@ -3,7 +3,8 @@ import uuid
 
 
 order = {
-    "items": []
+    "items": [],
+    "status": "building"
 }
 
 pending_action = {
@@ -40,6 +41,13 @@ def load_menu():
 
     return menu
 
+def mark_order_changed():
+    """
+    Return the order to building state whenever its contents change.
+    """
+
+    if order["status"] != "submitted":
+        order["status"] = "building"
 
 def search_menu(search_term):
     menu = load_menu()
@@ -173,6 +181,7 @@ def add_to_order(item_id, quantity=1):
                     # order_item is from the customer's order
                     if order_item["item_id"] == item_id:
                         order_item["quantity"] += quantity
+                        mark_order_changed() 
                         return order
 
                 order["items"].append({
@@ -183,6 +192,7 @@ def add_to_order(item_id, quantity=1):
                     "quantity": quantity,
                     "modifiers": []
                 })
+                mark_order_changed() 
 
                 return order
 
@@ -199,7 +209,8 @@ def get_order():
         "items": order["items"],
         "total": round(total, 2),
         "currency": "GBP",
-        "currency_symbol": "£"
+        "currency_symbol": "£",
+        "status": order["status"]
     }
 
 
@@ -209,15 +220,32 @@ def remove_from_order(item_id, quantity=1):
 
         if item["item_id"] == item_id:
 
+            # Validate before changing state
+            if quantity <= 0:
+                return {
+                    "status": "invalid_quantity",
+                    "message": "Quantity must be greater than zero."
+                }
+
+            if quantity > item["quantity"]:
+                return {
+                    "status": "invalid_quantity",
+                    "message": "Cannot remove more items than are currently in the order.",
+                    "requested_quantity": quantity,
+                    "available_quantity": item["quantity"]
+                }
+
             item["quantity"] -= quantity
 
-            if item["quantity"] <= 0:
+            if item["quantity"] == 0:
                 order["items"].remove(item)
+
+            mark_order_changed()
 
             return get_order()
 
     return {
-        "error": "Item not found in order"
+        "status": "item_not_found"
     }
     
     
@@ -301,6 +329,8 @@ def remove_ingredient_from_order_item(line_id, ingredient):
 
     if modifier not in target_line["modifiers"]:
         target_line["modifiers"].append(modifier)
+    
+    mark_order_changed() 
 
     return {
         "status": "modified",
@@ -382,6 +412,8 @@ def split_order_line(line_id, split_quantity, copy_modifiers=True):
             }
 
             order["items"].append(new_line)
+            
+            mark_order_changed()
 
             return {
                 "status": "split",
@@ -606,3 +638,81 @@ def customize_order_line(line_id, ingredient, quantity=None):
         "status": result["status"],
         "order": get_order()
     }
+    
+
+def validate_order():
+    """
+    Validate whether the current order is ready for confirmation.
+    """
+
+    if len(order["items"]) == 0:
+        return {
+            "status": "invalid",
+            "reason": "empty_order"
+        }
+
+    for order_item in order["items"]:
+        if order_item["quantity"] <= 0:
+            return {
+                "status": "invalid",
+                "reason": "invalid_quantity",
+                "line_id": order_item["line_id"]
+            }
+
+    order["status"] = "awaiting_confirmation"
+
+    return {
+        "status": "valid",
+        "order": get_order()
+    }
+    
+def confirm_order():
+    """
+    Confirm an order only if it has already passed validation
+    and is awaiting customer confirmation.
+    """
+
+    if order["status"] != "awaiting_confirmation":
+        return {
+            "status": "confirmation_not_allowed",
+            "order_status": order["status"]
+        }
+
+    order["status"] = "confirmed"
+
+    return {
+        "status": "confirmed",
+        "order": get_order()
+    }
+    
+def submit_order():
+    """
+    Submit an order only after it has been explicitly confirmed.
+    """
+
+    if order["status"] != "confirmed":
+        return {
+            "status": "submission_not_allowed",
+            "order_status": order["status"]
+        }
+
+    order["status"] = "submitted"
+
+    return {
+        "status": "submitted",
+        "order": get_order()
+    }
+
+
+if __name__ == "__main__":
+
+    add_to_order("B001", 2)
+
+    print("BEFORE:")
+    print(get_order())
+
+    print("\nTRY REMOVE 50:")
+    print(remove_from_order("B001", 50))
+
+    print("\nAFTER:")
+    print(get_order())

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>OrderAI</title>
+</head>
+
+
+<body>
+
+    <h1>OrderAI</h1>
+
+    <div id="messages"></div>
+
+    <input
+        id="message-input"
+        type="text"
+        placeholder="Type your order..."
+    >
+
+    <button onclick="sendMessage()">
+        Send
+    </button>
+
+    <button
+        id="record-button"
+        onclick="toggleRecording()"
+    >
+        🎤 Start speaking
+    </button>
+
+    <p id="voice-status"></p>
+
+
+<script>
+
+const input =
+    document.getElementById("message-input");
+
+const messages =
+    document.getElementById("messages");
+
+const voiceStatus =
+    document.getElementById("voice-status");
+
+const recordButton =
+    document.getElementById("record-button");
+
+
+let mediaRecorder = null;
+let audioChunks = [];
+let recording = false;
+
+
+
+async function sendMessage(messageOverride = null) {
+
+    const message = (
+        messageOverride !== null
+            ? messageOverride
+            : input.value
+    ).trim();
+
+
+    if (!message) {
+        return;
+    }
+
+
+    messages.innerHTML += `
+        <p>
+            <strong>You:</strong>
+            ${message}
+        </p>
+    `;
+
+
+    input.value = "";
+
+
+    const response = await fetch("/chat", {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+            message: message
+        })
+
+    });
+
+
+    const data = await response.json();
+
+
+    messages.innerHTML += `
+        <p>
+            <strong>OrderAI:</strong>
+            ${data.message}
+        </p>
+    `;
+
+
+    speakResponse(data.message);
+}
+
+
+
+function speakResponse(text) {
+
+    if (!("speechSynthesis" in window)) {
+        return;
+    }
+
+
+    window.speechSynthesis.cancel();
+
+
+    const speech =
+        new SpeechSynthesisUtterance(text);
+
+
+    speech.lang = "en-GB";
+
+
+    window.speechSynthesis.speak(speech);
+}
+
+
+
+async function toggleRecording() {
+
+    if (!recording) {
+
+        await startRecording();
+
+    } else {
+
+        stopRecording();
+
+    }
+}
+
+
+
+async function startRecording() {
+
+    try {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                audio: true
+            });
+
+
+        audioChunks = [];
+
+
+        mediaRecorder =
+            new MediaRecorder(stream);
+
+
+        mediaRecorder.ondataavailable =
+            function(event) {
+
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+
+            };
+
+
+        mediaRecorder.onstop =
+            async function() {
+
+                voiceStatus.textContent =
+                    "Transcribing...";
+
+
+            const audioBlob = new Blob(
+                audioChunks,
+                {
+                    type: mediaRecorder.mimeType
+                }
+            );
+
+            console.log("Recorded MIME type:", mediaRecorder.mimeType);
+            console.log("Audio size:", audioBlob.size);
+
+            await transcribeAudio(
+                audioBlob,
+                mediaRecorder.mimeType
+            );
+
+
+                stream
+                    .getTracks()
+                    .forEach(track => track.stop());
+
+            };
+
+
+        mediaRecorder.start();
+
+
+        recording = true;
+
+
+        recordButton.textContent =
+            "⏹ Stop speaking";
+
+
+        voiceStatus.textContent =
+            "Listening...";
+
+
+    } catch (error) {
+
+        console.error(error);
+
+
+        voiceStatus.textContent =
+            "Could not access microphone: "
+            + error.message;
+
+    }
+
+}
+
+
+
+function stopRecording() {
+
+    if (
+        mediaRecorder &&
+        mediaRecorder.state !== "inactive"
+    ) {
+
+        mediaRecorder.stop();
+
+    }
+
+
+    recording = false;
+
+
+    recordButton.textContent =
+        "🎤 Start speaking";
+}
+
+
+
+async function transcribeAudio(audioBlob, mimeType) {
+
+    const formData = new FormData();
+
+    let extension = "webm";
+
+    if (mimeType.includes("mp4")) {
+        extension = "mp4";
+    } else if (mimeType.includes("ogg")) {
+        extension = "ogg";
+    } else if (mimeType.includes("wav")) {
+        extension = "wav";
+    }
+
+    formData.append(
+        "audio",
+        audioBlob,
+        `recording.${extension}`
+    );
+
+    try {
+
+        const response = await fetch(
+            "/transcribe",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+
+            voiceStatus.textContent =
+                data.error ||
+                "Transcription failed.";
+
+            return;
+        }
+
+        const transcript = data.text.trim();
+
+        voiceStatus.textContent =
+            `Heard: ${transcript}`;
+
+        input.value = transcript;
+
+        await sendMessage(transcript);
+
+    } catch (error) {
+
+        console.error(error);
+
+        voiceStatus.textContent =
+            "Audio upload failed.";
+    }
+}
+
+
+
+input.addEventListener(
+    "keydown",
+    function(event) {
+
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+
+    }
+);
+
+</script>
+
+</body>
+
+</html>

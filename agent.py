@@ -16,7 +16,9 @@ from tools import (
     customize_order_line,
     validate_order, 
     confirm_order,
-    submit_order
+    submit_order,
+    start_new_order
+
     
 )
 
@@ -305,7 +307,20 @@ tools = [
         "properties": {},
         "additionalProperties": False
     }
-}
+},
+    {
+    "type": "function",
+    "name": "start_new_order",
+    "description": """
+    Start a fresh order after the customer's previous order
+    has already been confirmed or submitted.
+    """,
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False
+    }
+    }
     
 ]
 
@@ -314,7 +329,7 @@ tools = [
 # TOOL EXECUTION
 # --------------------------------------------------
 
-def execute_tool(name, arguments):
+def execute_tool(name, arguments, turn_id=None):
     print(f"[TOOL CALL] {name} {arguments}")
 
 
@@ -368,13 +383,16 @@ def execute_tool(name, arguments):
             arguments["quantity"]
         )
     if name == "validate_order":
-        return validate_order()
+        return validate_order(turn_id)
 
     if name == "confirm_order":
-        return confirm_order()
-
+        return confirm_order(turn_id)
+    
     if name == "submit_order":
         return submit_order()
+    
+    if name == "start_new_order":
+     return start_new_order()
     
     return {
         "error": f"Unknown tool: {name}"
@@ -386,7 +404,7 @@ def execute_tool(name, arguments):
 # AGENT
 # --------------------------------------------------
 
-def run_agent(user_message, previous_response_id=None):
+def run_agent(user_message,previous_response_id=None,turn_id=None):
 
     request = {
         "model": "gpt-5.4-mini",
@@ -459,6 +477,18 @@ def run_agent(user_message, previous_response_id=None):
 
         Never claim an order modification was made unless the tool
         successfully returns "modified".
+        If the customer says they want to place another order, start a new order,
+        or order again after their previous order has already been confirmed or
+        submitted, use start_new_order before adding any new items.
+
+        Do not claim that a new order has started unless start_new_order succeeds.
+        After the customer explicitly confirms an order that is awaiting
+        confirmation:
+
+        1. Use confirm_order.
+        2. If confirm_order succeeds, immediately use submit_order.
+        3. Only tell the customer their order has been placed after
+        submit_order returns "submitted".
 
         """,
         "input": user_message,
@@ -490,8 +520,8 @@ def run_agent(user_message, previous_response_id=None):
 
             result = execute_tool(
                 tool_call.name,
-                arguments
-            )
+                arguments,
+                turn_id=turn_id)
 
             tool_outputs.append({
                 "type": "function_call_output",
@@ -508,6 +538,14 @@ def run_agent(user_message, previous_response_id=None):
 
             Never invent menu items, prices or item IDs.
             All prices are in GBP and must use the £ symbol.
+            
+            After the customer explicitly confirms an order that is awaiting
+            confirmation:
+
+            1. Use confirm_order.
+            2. If confirm_order succeeds, immediately use submit_order.
+            3. Only tell the customer their order has been placed after
+            submit_order returns "submitted".
             """,
             previous_response_id=response.id,
             input=tool_outputs,

@@ -4,7 +4,8 @@ import uuid
 
 order = {
     "items": [],
-    "status": "building"
+    "status": "building",
+    "validated_turn": None
 }
 
 pending_action = {
@@ -41,6 +42,17 @@ def load_menu():
 
     return menu
 
+def ensure_order_editable():
+
+    if order["status"] in ["confirmed", "submitted"]:
+        return {
+            "status": "order_locked",
+            "order_status": order["status"],
+            "message": "This order can no longer be changed."
+        }
+
+    return None
+
 def mark_order_changed():
     """
     Return the order to building state whenever its contents change.
@@ -48,6 +60,7 @@ def mark_order_changed():
 
     if order["status"] != "submitted":
         order["status"] = "building"
+        order["validated_turn"] = None
 
 def search_menu(search_term):
     menu = load_menu()
@@ -168,6 +181,12 @@ def add_item_to_order(search_term, quantity=1):
     }
 
 def add_to_order(item_id, quantity=1):
+    
+    locked = ensure_order_editable()
+
+    if locked:
+        return locked
+
     menu = load_menu()
 
     for category_name, items in menu["categories"].items():
@@ -640,7 +659,7 @@ def customize_order_line(line_id, ingredient, quantity=None):
     }
     
 
-def validate_order():
+def validate_order(turn_id=None):
     """
     Validate whether the current order is ready for confirmation.
     """
@@ -660,22 +679,56 @@ def validate_order():
             }
 
     order["status"] = "awaiting_confirmation"
+    
+    order["status"] = "awaiting_confirmation"
+    order["validated_turn"] = turn_id
 
     return {
         "status": "valid",
         "order": get_order()
     }
     
-def confirm_order():
+def start_new_order():
+
+    if order["status"] not in ["confirmed", "submitted"]:
+        return {
+            "status": "new_order_not_allowed",
+            "order_status": order["status"]
+        }
+
+    order["items"].clear()
+    order["status"] = "building"
+
+    clear_pending_action()
+
+    return {
+        "status": "new_order_started",
+        "order": get_order()
+    }
+    
+def confirm_order(turn_id=None):
     """
-    Confirm an order only if it has already passed validation
-    and is awaiting customer confirmation.
+    Confirm an order only if it has already passed validation,
+    is awaiting customer confirmation, and the customer is
+    responding on a later turn.
     """
 
     if order["status"] != "awaiting_confirmation":
         return {
             "status": "confirmation_not_allowed",
             "order_status": order["status"]
+        }
+
+    if order["validated_turn"] is None:
+        return {
+            "status": "confirmation_not_allowed",
+            "reason": "order_not_validated"
+        }
+
+    if turn_id is None or turn_id <= order["validated_turn"]:
+        return {
+            "status": "confirmation_not_allowed",
+            "reason": "separate_customer_confirmation_required"
         }
 
     order["status"] = "confirmed"

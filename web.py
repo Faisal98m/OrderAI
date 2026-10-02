@@ -41,9 +41,14 @@ def chat():
 
     previous_response_id = session.get("previous_response_id")
 
+    # Each customer message is a new turn
+    turn_id = session.get("turn_id", 0) + 1
+    session["turn_id"] = turn_id
+
     response, new_response_id = run_agent(
         message,
-        previous_response_id
+        previous_response_id,
+        turn_id
     )
 
     session["previous_response_id"] = new_response_id

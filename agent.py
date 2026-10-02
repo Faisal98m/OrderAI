@@ -20,10 +20,16 @@ from tools import (
     start_new_order
 
     
+    
 )
 
 
+
+
+
 load_dotenv()
+
+
 
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
@@ -33,6 +39,7 @@ client = OpenAI(
 # --------------------------------------------------
 # TOOLS AVAILABLE TO THE MODEL
 # --------------------------------------------------
+
 
 tools = [
     
@@ -320,7 +327,7 @@ tools = [
         "properties": {},
         "additionalProperties": False
     }
-    }
+    },
     
 ]
 
@@ -404,93 +411,47 @@ def execute_tool(name, arguments, turn_id=None):
 # AGENT
 # --------------------------------------------------
 
+
+
 def run_agent(user_message,previous_response_id=None,turn_id=None):
+    
+
 
     request = {
         "model": "gpt-5.4-mini",
         "instructions": """
-        You are the AI receptionist for OrderAI Burger House.
+You are the AI receptionist for OrderAI Burger House.
 
-        Your job is to help customers browse the menu and build
-        their restaurant order.
+ROLE
+Help customers browse the menu, build an order, review it, and complete it through natural conversation.
 
-        Use search_menu whenever you need menu information.
+GENERAL BEHAVIOUR
+- Speak naturally and keep responses concise.
+- Do not invent menu items, prices, order contents, totals, or tool results.
+- Use tools whenever the customer's request requires reading or changing order state.
+- Do not claim an action succeeded until the relevant tool confirms success.
+- If a tool returns an error, ambiguity, or failure, explain it briefly and ask for the minimum clarification needed.
 
-        Never invent menu items, prices or item IDs.
+ORDER ACTIONS
+- When the customer wants to add an item, use add_item_to_order.
+- When the customer asks what is currently in their order, use get_order.
+- Never answer questions about the current basket from memory when get_order can provide the actual state.
+- Never claim an item was added unless add_item_to_order succeeds.
 
-        Before adding an item to an order, make sure you know the
-        correct item ID from menu information available in the
-        conversation or by using search_menu.
+TOOL USAGE
+- Treat tool results as the source of truth for order state.
+- Do not guess tool arguments when the customer's request is ambiguous.
+- If the customer gives enough information, call the tool directly rather than asking unnecessary follow-up questions.
+- After a successful tool call, respond naturally using the result.
+- Do not expose internal tool names or implementation details to the customer.
 
-        Use add_to_order when the customer clearly asks to add or
-        order an item.
+CONVERSATION STYLE
+- Act like a restaurant receptionist, not a technical assistant.
+- Prefer short spoken responses.
+- Avoid repeating the full order unless the customer asks for a summary or confirmation.
+- Ask one clarification question at a time.
 
-        Use remove_from_order when the customer asks to remove an
-        item.
-
-        Use get_order when the customer asks what they have ordered,
-        asks for their total, or wants an order summary.
-
-        All prices are in GBP and must use the £ symbol.
-        Before changing the customer's order, the requested item must be
-        unambiguous.
-
-        If the customer's request could refer to more than one item currently
-        in their order, do not guess based on the most recent conversation.
-
-        Use get_order to inspect the current order when necessary.
-
-        If multiple items could match the customer's request, ask the customer
-        which specific item they mean before calling add_to_order or
-        remove_from_order.
-
-        Only perform the action once the intended item is clear.
-        
-        Use add_item_to_order when the customer asks to add or order
-        a menu item.
-
-        The tool validates the customer's description before changing
-        the order.
-
-        If the tool returns "ambiguous", ask the customer which of the
-        matching items they mean.
-
-        If the tool returns "not_found", tell the customer the requested
-        item could not be found.
-        
-        Never choose one of multiple matches yourself.
-        
-        If an add request was previously ambiguous and you asked the customer
-        to clarify which item they meant, use continue_pending_action with
-        their clarification.
-
-        Do not create a new add request when the customer is answering a
-        clarification question about an unfinished add request.
-        
-        Use modify_order_item when the customer asks to remove an
-        ingredient from an item already in their order.
-
-        If the tool returns "ambiguous", ask which order item they mean.
-
-        If the tool returns "ingredient_not_found", explain that the
-        ingredient is not listed on that menu item.
-
-        Never claim an order modification was made unless the tool
-        successfully returns "modified".
-        If the customer says they want to place another order, start a new order,
-        or order again after their previous order has already been confirmed or
-        submitted, use start_new_order before adding any new items.
-
-        Do not claim that a new order has started unless start_new_order succeeds.
-        After the customer explicitly confirms an order that is awaiting
-        confirmation:
-
-        1. Use confirm_order.
-        2. If confirm_order succeeds, immediately use submit_order.
-        3. Only tell the customer their order has been placed after
-        submit_order returns "submitted".
-
-        """,
+""",
         "input": user_message,
         "tools": tools
     }
@@ -546,6 +507,19 @@ def run_agent(user_message,previous_response_id=None,turn_id=None):
             2. If confirm_order succeeds, immediately use submit_order.
             3. Only tell the customer their order has been placed after
             submit_order returns "submitted".
+            
+            When the customer asks what is currently in their order,
+            use get_order.
+
+            Never invent order contents or totals.
+            Use get_order to check the actual basket.
+            
+            When the customer asks about menu items, prices,
+            available burgers, drinks, sides, or whether an item is sold,
+            use search_menu.
+
+            Do not invent menu items or prices.
+            Use search_menu as the source of truth for menu questions.
             """,
             previous_response_id=response.id,
             input=tool_outputs,

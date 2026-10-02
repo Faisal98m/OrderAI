@@ -4,9 +4,8 @@ import tempfile
 import requests
 
 from openai import OpenAI
-
 from flask import Flask, request, jsonify, render_template, session
-from agent import run_agent
+from agent import run_agent, execute_tool
 
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
@@ -132,6 +131,47 @@ def realtime_session():
     )
 
     return jsonify(response.json()), response.status_code
+
+
+@app.route("/realtime-tool", methods=["POST"])
+def realtime_tool():
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            "error": "Tool request is required."
+        }), 400
+
+    tool_name = data.get("name")
+    arguments = data.get("arguments", {})
+
+    if not tool_name:
+        return jsonify({
+            "error": "Tool name is required."
+        }), 400
+
+    try:
+
+        result = execute_tool(
+            tool_name,
+            arguments
+        )
+
+        return jsonify({
+            "result": result
+        })
+
+    except Exception as error:
+
+        print(
+            "Realtime tool error:",
+            error
+        )
+
+        return jsonify({
+            "error": str(error)
+        }), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

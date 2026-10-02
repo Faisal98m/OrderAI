@@ -29,11 +29,17 @@
         Send
     </button>
 
-    <button id="realtime-button" onclick="startRealtime()">
+    <button
+        id="realtime-button"
+        onclick="startRealtime()"
+    >
         Start Realtime Test
     </button>
 
-    <audio id="realtime-audio" autoplay></audio>
+    <audio
+        id="realtime-audio"
+        autoplay
+    ></audio>
 
     <button
         id="record-button"
@@ -78,7 +84,6 @@ let lastSoundTime = null;
 let realtimePeer = null;
 let realtimeChannel = null;
 let realtimeStream = null;
-
 
 
 // How quiet audio must be to count as silence
@@ -146,8 +151,6 @@ async function sendMessage(messageOverride = null) {
     await speakResponse(data.message);
 
 
-    // OrderAI finished speaking.
-    // Start listening for the customer again.
     if (conversationMode) {
 
         setTimeout(
@@ -466,7 +469,6 @@ function startSilenceMonitoring(stream) {
             Date.now();
 
 
-        // Voice / sound detected
         if (
             rms >
             SILENCE_THRESHOLD
@@ -479,8 +481,6 @@ function startSilenceMonitoring(stream) {
         }
 
 
-        // Speech happened,
-        // then silence lasted long enough.
         if (
             speechDetected &&
             lastSoundTime &&
@@ -669,25 +669,38 @@ async function transcribeAudio(
     }
 }
 
+
+
 async function startRealtime() {
 
     const button =
-        document.getElementById("realtime-button");
+        document.getElementById(
+            "realtime-button"
+        );
 
     const audioElement =
-        document.getElementById("realtime-audio");
+        document.getElementById(
+            "realtime-audio"
+        );
+
 
     button.disabled = true;
-    button.textContent = "Connecting...";
+    button.textContent =
+        "Connecting...";
+
 
     try {
 
-        // 1. Get the short-lived credential from Flask
+        // 1. Get temporary credential from Flask
         const tokenResponse =
-            await fetch("/realtime-session");
+            await fetch(
+                "/realtime-session"
+            );
+
 
         const tokenData =
             await tokenResponse.json();
+
 
         const ephemeralKey =
             tokenData.value;
@@ -698,7 +711,7 @@ async function startRealtime() {
             new RTCPeerConnection();
 
 
-        // 3. Play model audio returned over WebRTC
+        // 3. Play model audio
         realtimePeer.ontrack =
             function(event) {
 
@@ -708,9 +721,10 @@ async function startRealtime() {
             };
 
 
-        // 4. Send microphone audio to Realtime
+        // 4. Get microphone
         realtimeStream =
-            await navigator.mediaDevices
+            await navigator
+                .mediaDevices
                 .getUserMedia({
                     audio: true
                 });
@@ -728,13 +742,14 @@ async function startRealtime() {
             });
 
 
-        // 5. Data channel for realtime events
+        // 5. Create Realtime data channel
         realtimeChannel =
             realtimePeer.createDataChannel(
                 "oai-events"
             );
 
 
+        // 6. Configure Realtime session
         realtimeChannel.onopen =
             function() {
 
@@ -742,51 +757,286 @@ async function startRealtime() {
                     "Realtime data channel open"
                 );
 
+
                 button.textContent =
                     "Realtime connected";
 
+
+realtimeChannel.send(
+    JSON.stringify({
+        type: "session.update",
+
+        session: {
+            type: "realtime",
+            model: "gpt-realtime-2.1-mini",
+
+            instructions: `
+                You are the AI receptionist for OrderAI Burger House.
+
+                When the customer asks to add food to their order,
+                you MUST call add_item_to_order.
+
+                Do not say an item was added unless the tool succeeds.
+
+                Keep spoken responses short and natural.
+            `,
+
+tools: [
+    {
+        type: "function",
+        name: "add_item_to_order",
+        description:
+            "Add a menu item to the customer's current order.",
+        parameters: {
+            type: "object",
+            properties: {
+                search_term: {
+                    type: "string"
+                },
+                quantity: {
+                    type: "integer"
+                }
+            },
+            required: [
+                "search_term",
+                "quantity"
+            ],
+            additionalProperties: false
+        }
+    },
+
+    {
+        type: "function",
+        name: "get_order",
+        description:
+            "Get the customer's current order and total.",
+        parameters: {
+            type: "object",
+            properties: {},
+            additionalProperties: false
+        }
+    },
+    {
+    type: "function",
+    name: "search_menu",
+    description:
+        "Search the restaurant menu for food, drinks, menu items or prices.",
+    parameters: {
+        type: "object",
+        properties: {
+            search_term: {
+                type: "string",
+                description:
+                    "The food or drink the customer is asking about."
+            }
+        },
+        required: [
+            "search_term"
+        ],
+        additionalProperties: false
+    }
+}
+],
+
+            tool_choice: "auto"
+        }
+    })
+);
+
             };
 
 
-        realtimeChannel.onmessage =
-            function(event) {
+        // 7. Listen for Realtime events
+realtimeChannel.onmessage =
+    async function(event) {
 
-                const message =
-                    JSON.parse(event.data);
+        const message =
+            JSON.parse(event.data);
 
-                console.log(
-                    "Realtime event:",
-                    message
+
+        console.log(
+            "Realtime event:",
+            message
+        );
+
+
+        // Confirm the session update worked
+        if (
+            message.type ===
+            "session.updated"
+        ) {
+
+            console.log(
+                "UPDATED SESSION TOOLS:",
+                message.session.tools
+            );
+
+        }
+
+
+        // Show Realtime API errors
+        if (
+            message.type ===
+            "error"
+        ) {
+
+            console.error(
+                "REALTIME API ERROR:",
+                message
+            );
+
+        }
+
+
+        // Handle completed function calls
+        if (
+            message.type ===
+            "response.output_item.done" &&
+            message.item &&
+            message.item.type ===
+            "function_call"
+        ) {
+
+            const toolCall =
+                message.item;
+
+
+            console.log(
+                "FUNCTION CALL:",
+                toolCall
+            );
+
+
+            const argumentsObject =
+                JSON.parse(
+                    toolCall.arguments
                 );
 
+
+            // Execute the Python tool through Flask
+            const toolResponse =
+                await fetch(
+                    "/realtime-tool",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                name:
+                                    toolCall.name,
+
+                                arguments:
+                                    argumentsObject
+                            })
+                    }
+                );
+
+
+            const toolData =
+                await toolResponse.json();
+
+
+            console.log(
+                "Tool result:",
+                toolData
+            );
+
+
+            if (!toolResponse.ok) {
+
+                console.error(
+                    "Tool execution failed:",
+                    toolData
+                );
+
+                return;
+
+            }
+
+
+            // Send the tool result back to Realtime
+            realtimeChannel.send(
+                JSON.stringify({
+
+                    type:
+                        "conversation.item.create",
+
+                    item: {
+
+                        type:
+                            "function_call_output",
+
+                        call_id:
+                            toolCall.call_id,
+
+                        output:
+                            JSON.stringify(
+                                toolData.result
+                            )
+
+                    }
+
+                })
+            );
+
+
+            // Ask the model to continue
+            // after receiving the tool result
+            realtimeChannel.send(
+                JSON.stringify({
+
+                    type:
+                        "response.create"
+
+                })
+            );
+
+        
+
+    };
             };
 
 
-        // 6. Create browser SDP offer
+        // 8. Create browser SDP offer
         const offer =
-            await realtimePeer.createOffer();
+            await realtimePeer
+                .createOffer();
 
 
         await realtimePeer
-            .setLocalDescription(offer);
+            .setLocalDescription(
+                offer
+            );
 
 
-        // 7. Send SDP to OpenAI using the ephemeral key
+        // 9. Send SDP to OpenAI
         const sdpResponse =
             await fetch(
-                "https://api.openai.com/v1/realtime/calls",
-                {
-                    method: "POST",
 
-                    body: offer.sdp,
+                "https://api.openai.com/v1/realtime/calls",
+
+                {
+                    method:
+                        "POST",
+
+                    body:
+                        offer.sdp,
 
                     headers: {
+
                         "Authorization":
                             `Bearer ${ephemeralKey}`,
 
                         "Content-Type":
                             "application/sdp"
+
                     }
+
                 }
             );
 
@@ -796,6 +1046,7 @@ async function startRealtime() {
             const errorText =
                 await sdpResponse.text();
 
+
             throw new Error(
                 errorText
             );
@@ -803,10 +1054,11 @@ async function startRealtime() {
         }
 
 
-        // 8. Receive SDP answer from OpenAI
+        // 10. Receive SDP answer
         const answer = {
 
-            type: "answer",
+            type:
+                "answer",
 
             sdp:
                 await sdpResponse.text()
@@ -832,7 +1084,9 @@ async function startRealtime() {
         );
 
 
-        button.disabled = false;
+        button.disabled =
+            false;
+
 
         button.textContent =
             "Start Realtime Test";
@@ -840,6 +1094,7 @@ async function startRealtime() {
     }
 
 }
+
 
 
 input.addEventListener(

@@ -31,9 +31,9 @@
 
     <button
         id="record-button"
-        onclick="toggleRecording()"
+        onclick="toggleConversation()"
     >
-        🎤 Start speaking
+        🎤 Start conversation
     </button>
 
     <p id="voice-status"></p>
@@ -56,7 +56,25 @@ const recordButton =
 
 let mediaRecorder = null;
 let audioChunks = [];
+
 let recording = false;
+let conversationMode = false;
+
+let activeStream = null;
+
+let audioContext = null;
+let analyser = null;
+let monitoringFrame = null;
+
+let speechDetected = false;
+let lastSoundTime = null;
+
+
+// How quiet audio must be to count as silence
+const SILENCE_THRESHOLD = 0.02;
+
+// How long silence must last before we send the turn
+const SILENCE_DURATION = 1500;
 
 
 
@@ -83,6 +101,9 @@ async function sendMessage(messageOverride = null) {
 
 
     input.value = "";
+
+    voiceStatus.textContent =
+        "OrderAI is thinking...";
 
 
     const response = await fetch("/chat", {
@@ -111,40 +132,94 @@ async function sendMessage(messageOverride = null) {
     `;
 
 
-    speakResponse(data.message);
+    await speakResponse(data.message);
+
+
+    // OrderAI finished speaking.
+    // Start listening for the customer again.
+    if (conversationMode) {
+
+        setTimeout(
+            startRecording,
+            300
+        );
+
+    }
 }
 
 
 
 function speakResponse(text) {
 
-    if (!("speechSynthesis" in window)) {
-        return;
-    }
+    return new Promise((resolve) => {
+
+        if (!("speechSynthesis" in window)) {
+            resolve();
+            return;
+        }
 
 
-    window.speechSynthesis.cancel();
+        window.speechSynthesis.cancel();
 
 
-    const speech =
-        new SpeechSynthesisUtterance(text);
+        const speech =
+            new SpeechSynthesisUtterance(text);
 
 
-    speech.lang = "en-GB";
+        speech.lang = "en-GB";
 
 
-    window.speechSynthesis.speak(speech);
+        speech.onstart = function() {
+
+            voiceStatus.textContent =
+                "OrderAI is speaking...";
+
+        };
+
+
+        speech.onend = function() {
+
+            resolve();
+
+        };
+
+
+        speech.onerror = function() {
+
+            resolve();
+
+        };
+
+
+        window.speechSynthesis.speak(speech);
+
+    });
 }
 
 
 
-async function toggleRecording() {
+async function toggleConversation() {
 
-    if (!recording) {
+    if (!conversationMode) {
+
+        conversationMode = true;
+
+        recordButton.textContent =
+            "⏹ End conversation";
 
         await startRecording();
 
     } else {
+
+        conversationMode = false;
+
+        recordButton.textContent =
+            "🎤 Start conversation";
+
+        voiceStatus.textContent =
+            "Conversation ended.";
+
+        window.speechSynthesis.cancel();
 
         stopRecording();
 
@@ -155,9 +230,14 @@ async function toggleRecording() {
 
 async function startRecording() {
 
+    if (!conversationMode || recording) {
+        return;
+    }
+
+
     try {
 
-        const stream =
+        activeStream =
             await navigator.mediaDevices.getUserMedia({
                 audio: true
             });
@@ -165,9 +245,13 @@ async function startRecording() {
 
         audioChunks = [];
 
+        speechDetected = false;
+
+        lastSoundTime = null;
+
 
         mediaRecorder =
-            new MediaRecorder(stream);
+            new MediaRecorder(activeStream);
 
 
         mediaRecorder.ondataavailable =
@@ -183,45 +267,79 @@ async function startRecording() {
         mediaRecorder.onstop =
             async function() {
 
+                stopSilenceMonitoring();
+
+
+                const mimeType =
+                    mediaRecorder.mimeType;
+
+
+                const audioBlob =
+                    new Blob(
+                        audioChunks,
+                        {
+                            type: mimeType
+                        }
+                    );
+
+
+                if (activeStream) {
+
+                    activeStream
+                        .getTracks()
+                        .forEach(
+                            track => track.stop()
+                        );
+
+                }
+
+
+                activeStream = null;
+
+
+                if (!conversationMode) {
+                    return;
+                }
+
+
+                if (!speechDetected) {
+
+                    voiceStatus.textContent =
+                        "Listening...";
+
+                    setTimeout(
+                        startRecording,
+                        300
+                    );
+
+                    return;
+                }
+
+
                 voiceStatus.textContent =
                     "Transcribing...";
 
 
-            const audioBlob = new Blob(
-                audioChunks,
-                {
-                    type: mediaRecorder.mimeType
-                }
-            );
-
-            console.log("Recorded MIME type:", mediaRecorder.mimeType);
-            console.log("Audio size:", audioBlob.size);
-
-            await transcribeAudio(
-                audioBlob,
-                mediaRecorder.mimeType
-            );
-
-
-                stream
-                    .getTracks()
-                    .forEach(track => track.stop());
+                await transcribeAudio(
+                    audioBlob,
+                    mimeType
+                );
 
             };
 
 
         mediaRecorder.start();
 
-
         recording = true;
-
-
-        recordButton.textContent =
-            "⏹ Stop speaking";
 
 
         voiceStatus.textContent =
             "Listening...";
+
+
+        startSilenceMonitoring(
+            activeStream
+        );
 
 
     } catch (error) {
@@ -229,12 +347,20 @@ async function startRecording() {
         console.error(error);
 
 
+        conversationMode = false;
+
+        recording = false;
+
+
+        recordButton.textContent =
+            "🎤 Start conversation";
+
+
         voiceStatus.textContent =
             "Could not access microphone: "
             + error.message;
 
     }
-
 }
 
 
@@ -253,26 +379,186 @@ function stopRecording() {
 
     recording = false;
 
-
-    recordButton.textContent =
-        "🎤 Start speaking";
 }
 
 
 
-async function transcribeAudio(audioBlob, mimeType) {
+function startSilenceMonitoring(stream) {
 
-    const formData = new FormData();
+    audioContext =
+        new AudioContext();
+
+
+    analyser =
+        audioContext.createAnalyser();
+
+
+    analyser.fftSize = 2048;
+
+
+    const source =
+        audioContext
+            .createMediaStreamSource(stream);
+
+
+    source.connect(analyser);
+
+
+    const samples =
+        new Uint8Array(
+            analyser.fftSize
+        );
+
+
+    function monitor() {
+
+        if (
+            !recording ||
+            !analyser
+        ) {
+            return;
+        }
+
+
+        analyser.getByteTimeDomainData(
+            samples
+        );
+
+
+        let sumSquares = 0;
+
+
+        for (
+            let i = 0;
+            i < samples.length;
+            i++
+        ) {
+
+            const normalized =
+                (samples[i] - 128) / 128;
+
+
+            sumSquares +=
+                normalized * normalized;
+
+        }
+
+
+        const rms =
+            Math.sqrt(
+                sumSquares /
+                samples.length
+            );
+
+
+        const now =
+            Date.now();
+
+
+        // Voice / sound detected
+        if (
+            rms >
+            SILENCE_THRESHOLD
+        ) {
+
+            speechDetected = true;
+
+            lastSoundTime = now;
+
+        }
+
+
+        // Speech happened,
+        // then silence lasted long enough.
+        if (
+            speechDetected &&
+            lastSoundTime &&
+            now - lastSoundTime
+                >= SILENCE_DURATION
+        ) {
+
+            voiceStatus.textContent =
+                "Got it...";
+
+
+            stopRecording();
+
+            return;
+
+        }
+
+
+        monitoringFrame =
+            requestAnimationFrame(
+                monitor
+            );
+
+    }
+
+
+    monitor();
+}
+
+
+
+function stopSilenceMonitoring() {
+
+    if (monitoringFrame) {
+
+        cancelAnimationFrame(
+            monitoringFrame
+        );
+
+        monitoringFrame = null;
+
+    }
+
+
+    analyser = null;
+
+
+    if (audioContext) {
+
+        audioContext.close();
+
+        audioContext = null;
+
+    }
+
+}
+
+
+
+async function transcribeAudio(
+    audioBlob,
+    mimeType
+) {
+
+    const formData =
+        new FormData();
+
 
     let extension = "webm";
 
+
     if (mimeType.includes("mp4")) {
+
         extension = "mp4";
-    } else if (mimeType.includes("ogg")) {
+
+    } else if (
+        mimeType.includes("ogg")
+    ) {
+
         extension = "ogg";
-    } else if (mimeType.includes("wav")) {
+
+    } else if (
+        mimeType.includes("wav")
+    ) {
+
         extension = "wav";
+
     }
+
 
     formData.append(
         "audio",
@@ -280,17 +566,22 @@ async function transcribeAudio(audioBlob, mimeType) {
         `recording.${extension}`
     );
 
+
     try {
 
-        const response = await fetch(
-            "/transcribe",
-            {
-                method: "POST",
-                body: formData
-            }
-        );
+        const response =
+            await fetch(
+                "/transcribe",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
 
-        const data = await response.json();
+
+        const data =
+            await response.json();
+
 
         if (!response.ok) {
 
@@ -298,24 +589,72 @@ async function transcribeAudio(audioBlob, mimeType) {
                 data.error ||
                 "Transcription failed.";
 
+
+            if (conversationMode) {
+
+                setTimeout(
+                    startRecording,
+                    300
+                );
+
+            }
+
+
             return;
         }
 
-        const transcript = data.text.trim();
+
+        const transcript =
+            data.text.trim();
+
+
+        if (!transcript) {
+
+            if (conversationMode) {
+
+                setTimeout(
+                    startRecording,
+                    300
+                );
+
+            }
+
+
+            return;
+        }
+
 
         voiceStatus.textContent =
             `Heard: ${transcript}`;
 
-        input.value = transcript;
 
-        await sendMessage(transcript);
+        input.value =
+            transcript;
+
+
+        await sendMessage(
+            transcript
+        );
+
 
     } catch (error) {
 
         console.error(error);
 
+
         voiceStatus.textContent =
             "Audio upload failed.";
+
+
+        if (conversationMode) {
+
+            setTimeout(
+                startRecording,
+                300
+            );
+
+        }
+
     }
 }
 

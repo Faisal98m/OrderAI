@@ -29,6 +29,12 @@
         Send
     </button>
 
+    <button id="realtime-button" onclick="startRealtime()">
+        Start Realtime Test
+    </button>
+
+    <audio id="realtime-audio" autoplay></audio>
+
     <button
         id="record-button"
         onclick="toggleConversation()"
@@ -68,6 +74,11 @@ let monitoringFrame = null;
 
 let speechDetected = false;
 let lastSoundTime = null;
+
+let realtimePeer = null;
+let realtimeChannel = null;
+let realtimeStream = null;
+
 
 
 // How quiet audio must be to count as silence
@@ -658,6 +669,177 @@ async function transcribeAudio(
     }
 }
 
+async function startRealtime() {
+
+    const button =
+        document.getElementById("realtime-button");
+
+    const audioElement =
+        document.getElementById("realtime-audio");
+
+    button.disabled = true;
+    button.textContent = "Connecting...";
+
+    try {
+
+        // 1. Get the short-lived credential from Flask
+        const tokenResponse =
+            await fetch("/realtime-session");
+
+        const tokenData =
+            await tokenResponse.json();
+
+        const ephemeralKey =
+            tokenData.value;
+
+
+        // 2. Create WebRTC connection
+        realtimePeer =
+            new RTCPeerConnection();
+
+
+        // 3. Play model audio returned over WebRTC
+        realtimePeer.ontrack =
+            function(event) {
+
+                audioElement.srcObject =
+                    event.streams[0];
+
+            };
+
+
+        // 4. Send microphone audio to Realtime
+        realtimeStream =
+            await navigator.mediaDevices
+                .getUserMedia({
+                    audio: true
+                });
+
+
+        realtimeStream
+            .getTracks()
+            .forEach(track => {
+
+                realtimePeer.addTrack(
+                    track,
+                    realtimeStream
+                );
+
+            });
+
+
+        // 5. Data channel for realtime events
+        realtimeChannel =
+            realtimePeer.createDataChannel(
+                "oai-events"
+            );
+
+
+        realtimeChannel.onopen =
+            function() {
+
+                console.log(
+                    "Realtime data channel open"
+                );
+
+                button.textContent =
+                    "Realtime connected";
+
+            };
+
+
+        realtimeChannel.onmessage =
+            function(event) {
+
+                const message =
+                    JSON.parse(event.data);
+
+                console.log(
+                    "Realtime event:",
+                    message
+                );
+
+            };
+
+
+        // 6. Create browser SDP offer
+        const offer =
+            await realtimePeer.createOffer();
+
+
+        await realtimePeer
+            .setLocalDescription(offer);
+
+
+        // 7. Send SDP to OpenAI using the ephemeral key
+        const sdpResponse =
+            await fetch(
+                "https://api.openai.com/v1/realtime/calls",
+                {
+                    method: "POST",
+
+                    body: offer.sdp,
+
+                    headers: {
+                        "Authorization":
+                            `Bearer ${ephemeralKey}`,
+
+                        "Content-Type":
+                            "application/sdp"
+                    }
+                }
+            );
+
+
+        if (!sdpResponse.ok) {
+
+            const errorText =
+                await sdpResponse.text();
+
+            throw new Error(
+                errorText
+            );
+
+        }
+
+
+        // 8. Receive SDP answer from OpenAI
+        const answer = {
+
+            type: "answer",
+
+            sdp:
+                await sdpResponse.text()
+
+        };
+
+
+        await realtimePeer
+            .setRemoteDescription(
+                answer
+            );
+
+
+        button.textContent =
+            "Realtime connected";
+
+
+    } catch (error) {
+
+        console.error(
+            "Realtime error:",
+            error
+        );
+
+
+        button.disabled = false;
+
+        button.textContent =
+            "Start Realtime Test";
+
+    }
+
+}
 
 
 input.addEventListener(

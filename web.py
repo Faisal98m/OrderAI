@@ -1,6 +1,7 @@
 import uuid
 import os
 import tempfile
+import requests
 
 from openai import OpenAI
 
@@ -105,6 +106,32 @@ def transcribe():
     finally:
 
         os.remove(temp_path)
+        
+@app.route("/realtime-session", methods=["GET"])
+def realtime_session():
+
+    session_config = {
+        "session": {
+            "type": "realtime",
+            "model": "gpt-realtime-2.1-mini",
+            "audio": {
+                "output": {
+                    "voice": "marin"
+                }
+            }
+        }
+    }
+
+    response = requests.post(
+        "https://api.openai.com/v1/realtime/client_secrets",
+        headers={
+            "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
+            "Content-Type": "application/json"
+        },
+        json=session_config
+    )
+
+    return jsonify(response.json()), response.status_code
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

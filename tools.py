@@ -1,6 +1,6 @@
 import json
 import uuid
-
+from whatsapp import send_whatsapp_message
 
 order = {
     "items": [],
@@ -760,11 +760,16 @@ def submit_order():
         f'Total: £{current_order["total"]:.2f}\n'
         "Status: Submitted"
     )
+    
+    whatsapp_result = send_whatsapp_message(
+    staff_message
+    )       
 
     return {
         "status": "submitted",
         "order": current_order,
-        "staff_message": staff_message
+        "staff_message": staff_message,
+        "whatsapp": whatsapp_result
     }
 
 

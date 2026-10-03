@@ -679,9 +679,6 @@ def validate_order(turn_id=None):
             }
 
     order["status"] = "awaiting_confirmation"
-    
-    order["status"] = "awaiting_confirmation"
-    order["validated_turn"] = turn_id
 
     return {
         "status": "valid",
@@ -708,27 +705,14 @@ def start_new_order():
     
 def confirm_order(turn_id=None):
     """
-    Confirm an order only if it has already passed validation,
-    is awaiting customer confirmation, and the customer is
-    responding on a later turn.
+    Confirm an order only after it has passed validation
+    and is awaiting explicit customer confirmation.
     """
 
     if order["status"] != "awaiting_confirmation":
         return {
             "status": "confirmation_not_allowed",
             "order_status": order["status"]
-        }
-
-    if order["validated_turn"] is None:
-        return {
-            "status": "confirmation_not_allowed",
-            "reason": "order_not_validated"
-        }
-
-    if turn_id is None or turn_id <= order["validated_turn"]:
-        return {
-            "status": "confirmation_not_allowed",
-            "reason": "separate_customer_confirmation_required"
         }
 
     order["status"] = "confirmed"
@@ -751,9 +735,36 @@ def submit_order():
 
     order["status"] = "submitted"
 
+    current_order = get_order()
+
+    summary_lines = []
+
+    for item in current_order["items"]:
+
+        line_total = (
+            item["price"] *
+            item["quantity"]
+        )
+
+        summary_lines.append(
+            f'{item["quantity"]}x {item["name"]} - £{line_total:.2f}'
+        )
+
+    staff_summary = "\n".join(
+        summary_lines
+    )
+
+    staff_message = (
+        "NEW ORDER\n\n"
+        f"{staff_summary}\n\n"
+        f'Total: £{current_order["total"]:.2f}\n'
+        "Status: Submitted"
+    )
+
     return {
         "status": "submitted",
-        "order": get_order()
+        "order": current_order,
+        "staff_message": staff_message
     }
 
 

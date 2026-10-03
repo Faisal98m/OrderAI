@@ -773,12 +773,66 @@ realtimeChannel.send(
             instructions: `
                 You are the AI receptionist for OrderAI Burger House.
 
-                When the customer asks to add food to their order,
-                you MUST call add_item_to_order.
+                Your job is to help customers explore the menu
+                and build an accurate food order.
 
-                Do not say an item was added unless the tool succeeds.
+                TOOL RULES
+
+                Use search_menu when:
+                - The customer asks what food or drinks are available.
+                - The customer asks about a price.
+                - You need to identify a menu item before answering.
+
+                Use add_item_to_order when:
+                - The customer clearly asks to add a specific item.
+                - The quantity is known.
+                - The requested item is sufficiently specific.
+
+                Use get_order when:
+                - The customer asks what is currently in their order.
+                - The customer asks for their total.
+                - The customer indicates they have finished ordering.
+
+                 When the customer wants to remove an item:
+                    - Use get_order first to inspect the current order.
+                    - Identify the exact item_id for the requested item.
+                    - If multiple items could match, ask the customer which one they mean.
+                    - Then call remove_from_order using the exact item_id.
+                    - Never guess an item_id.
+                
+                When the customer says they are finished ordering:
+                    1. Call get_order.
+                    2. Read back the complete order and total.
+                    3. Ask the customer to confirm the order.
+                    4. Do not submit the order until the customer explicitly confirms.
+
+                    When the customer confirms:
+                    - Call validate_order.
+                    - If validation succeeds, call confirm_order.
+                    - Then call submit_order.
+                    - Tell the customer the order has been submitted only if submit_order succeeds.
+
+                IMPORTANT RULES
+
+                Never invent menu items or prices.
+
+                Never say an item was added unless
+                add_item_to_order succeeds.
+
+                If the customer's request is ambiguous,
+                ask a clarification question instead of guessing.
+
+                Example:
+                Customer: "Add two burgers."
+                Assistant: Ask which burgers they want.
+
+                When the customer says they are finished ordering,
+                call get_order and read back their complete order
+                and total.
 
                 Keep spoken responses short and natural.
+
+
             `,
 
 tools: [
@@ -833,6 +887,65 @@ tools: [
         required: [
             "search_term"
         ],
+        additionalProperties: false
+    }
+},
+{
+    type: "function",
+    name: "remove_from_order",
+    description:
+        "Remove a menu item from the customer's current order. If the customer's request is ambiguous, do not guess which item they mean; ask a clarification question first.",
+    parameters: {
+        type: "object",
+        properties: {
+            search_term: {
+                type: "string",
+                description:
+                    "The menu item the customer wants removed."
+            },
+            quantity: {
+                type: "integer",
+                description:
+                    "The quantity to remove from the order."
+            }
+        },
+        required: [
+            "item_id",
+            "quantity"
+        ],
+        additionalProperties: false
+    }
+},
+{
+    type: "function",
+    name: "validate_order",
+    description:
+        "Validate the customer's current order before confirmation. Use this after the customer has reviewed the order and explicitly confirms they want to proceed.",
+    parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false
+    }
+},
+{
+    type: "function",
+    name: "confirm_order",
+    description:
+        "Confirm the customer's current validated order. Only use this after validate_order succeeds.",
+    parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false
+    }
+},
+{
+    type: "function",
+    name: "submit_order",
+    description:
+        "Submit the customer's confirmed order for preparation. Only use this after the order has been validated and confirmed.",
+    parameters: {
+        type: "object",
+        properties: {},
         additionalProperties: false
     }
 }

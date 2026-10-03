@@ -812,6 +812,13 @@ realtimeChannel.send(
                     - Then call submit_order.
                     - Tell the customer the order has been submitted only if submit_order succeeds.
 
+                When an order has already been submitted and the customer starts ordering again:
+                    - Call start_new_order before adding any new items.
+
+                    Also call start_new_order if the customer explicitly asks to start a new order.
+
+                    Never add new items to an order whose status is submitted.
+
                 IMPORTANT RULES
 
                 Never invent menu items or prices.
@@ -943,6 +950,17 @@ tools: [
     name: "submit_order",
     description:
         "Submit the customer's confirmed order for preparation. Only use this after the order has been validated and confirmed.",
+    parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false
+    }
+},
+{
+    type: "function",
+    name: "start_new_order",
+    description:
+        "Start a fresh customer order after the previous order has been submitted or when the customer explicitly asks to begin a new order.",
     parameters: {
         type: "object",
         properties: {},

@@ -1,5 +1,6 @@
 import json
 import uuid
+from database import save_order
 from whatsapp import send_whatsapp_message
 
 order = {
@@ -151,6 +152,12 @@ def add_item_to_order(search_term, quantity=1):
             "status": "not_found",
             "message": "No matching menu item was found."
         }
+        
+    if order["status"] == "submitted":
+        return {
+        "status": "new_order_required",
+        "message": "The previous order has already been submitted. Start a new order first."
+    }
 
     if resolution["status"] == "ambiguous":
 
@@ -736,6 +743,10 @@ def submit_order():
     order["status"] = "submitted"
 
     current_order = get_order()
+    
+    order_id = save_order(
+    current_order
+)
 
     summary_lines = []
 
@@ -755,7 +766,7 @@ def submit_order():
     )
 
     staff_message = (
-        "NEW ORDER\n\n"
+        f"NEW ORDER #{order_id}\n\n"
         f"{staff_summary}\n\n"
         f'Total: £{current_order["total"]:.2f}\n'
         "Status: Submitted"
@@ -767,6 +778,7 @@ def submit_order():
 
     return {
         "status": "submitted",
+        "order_id": order_id,
         "order": current_order,
         "staff_message": staff_message,
         "whatsapp": whatsapp_result

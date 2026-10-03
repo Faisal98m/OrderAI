@@ -2,7 +2,7 @@ import uuid
 import os
 import tempfile
 import requests
-
+from database import init_db
 from openai import OpenAI
 from flask import Flask, request, jsonify, render_template, session
 from agent import run_agent, execute_tool
@@ -174,4 +174,10 @@ def realtime_tool():
         }), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    init_db()
+
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True
+    )

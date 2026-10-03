@@ -2,10 +2,14 @@ import uuid
 import os
 import tempfile
 import requests
-from database import init_db
 from openai import OpenAI
 from flask import Flask, request, jsonify, render_template, session
 from agent import run_agent, execute_tool
+from database import (
+    init_db,
+    get_all_orders,
+    update_order_status
+)
 
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
@@ -172,6 +176,25 @@ def realtime_tool():
         return jsonify({
             "error": str(error)
         }), 500
+        
+@app.route("/admin/orders-data", methods=["GET"])
+def admin_orders_data():
+
+    orders = get_all_orders()
+
+    return jsonify({
+        "orders": orders
+    })
+    
+@app.route("/admin/orders", methods=["GET"])
+def admin_orders():
+
+    orders = get_all_orders()
+
+    return render_template(
+        "orders.html",
+        orders=orders
+    )
 
 if __name__ == "__main__":
     init_db()
@@ -181,3 +204,23 @@ if __name__ == "__main__":
         port=5000,
         debug=True
     )
+    
+@app.route(
+    "/admin/orders/<int:order_id>/status",
+    methods=["POST"]
+)
+def update_admin_order_status(order_id):
+
+    data = request.get_json()
+
+    if not data or "status" not in data:
+        return jsonify({
+            "error": "Status is required."
+        }), 400
+
+    result = update_order_status(
+        order_id,
+        data["status"]
+    )
+
+    return jsonify(result)

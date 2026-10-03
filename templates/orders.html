@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>OrderAI Orders</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+
+        .order {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .order-status {
+            text-transform: capitalize;
+            font-weight: bold;
+        }
+
+        .order-time {
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .order-items {
+            margin-top: 15px;
+        }
+
+        .item {
+            margin-bottom: 8px;
+        }
+
+        .total {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        .status-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .status-actions button {
+            padding: 8px 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .status-actions button:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>OrderAI Orders</h1>
+
+    {% for order in orders %}
+
+        <div class="order">
+
+            <div class="order-header">
+
+                <strong>
+                    Order #{{ order["id"] }}
+                </strong>
+
+                <span class="order-status">
+                    {{ order["status"] }}
+                </span>
+
+            </div>
+
+            <div class="order-time">
+                {{ order["created_at"] }}
+            </div>
+
+            <div class="order-items">
+
+                {% for item in order["items"] %}
+
+                    <div class="item">
+                        {{ item["quantity"] }}x
+                        {{ item["name"] }}
+                        -
+                        £{{ "%.2f"|format(
+                            item["price"] * item["quantity"]
+                        ) }}
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+            <div class="total">
+                Total:
+                £{{ "%.2f"|format(order["total"]) }}
+            </div>
+
+            <div class="status-actions">
+
+                {% if order["status"] != "preparing" %}
+
+                    <button
+                        onclick="updateStatus(
+                            {{ order['id'] }},
+                            'preparing'
+                        )"
+                    >
+                        Preparing
+                    </button>
+
+                {% endif %}
+
+
+                {% if order["status"] != "ready" %}
+
+                    <button
+                        onclick="updateStatus(
+                            {{ order['id'] }},
+                            'ready'
+                        )"
+                    >
+                        Ready
+                    </button>
+
+                {% endif %}
+
+
+                {% if order["status"] != "completed" %}
+
+                    <button
+                        onclick="updateStatus(
+                            {{ order['id'] }},
+                            'completed'
+                        )"
+                    >
+                        Completed
+                    </button>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    {% else %}
+
+        <p>No orders found.</p>
+
+    {% endfor %}
+
+
+    <script>
+
+        async function updateStatus(
+            orderId,
+            newStatus
+        ) {
+
+            const response =
+                await fetch(
+                    `/admin/orders/${orderId}/status`,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            status: newStatus
+                        })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "Status update result:",
+                data
+            );
+
+
+            if (response.ok) {
+
+                location.reload();
+
+            } else {
+
+                console.error(
+                    "Status update failed:",
+                    data
+                );
+
+            }
+
+        }
+
+    </script>
+
+</body>
+
+</html>

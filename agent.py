@@ -333,19 +333,21 @@ tools = [
 # TOOL EXECUTION
 # --------------------------------------------------
 
-def execute_tool(name, arguments, turn_id=None):
+def execute_tool(name, arguments, turn_id=None,     restaurant_id="sanis"):
     print(f"[TOOL CALL] {name} {arguments}")
 
 
     if name == "search_menu":
         return search_menu(
-            arguments["search_term"]
+            arguments["search_term"],
+            restaurant_id
         )
 
     if name == "add_item_to_order":
         return add_item_to_order(
             arguments["search_term"],
-            arguments["quantity"]
+            arguments["quantity"],
+            restaurant_id
         )
 
     if name == "remove_from_order":
@@ -359,12 +361,14 @@ def execute_tool(name, arguments, turn_id=None):
     
     if name == "resolve_menu_item":
         return resolve_menu_item(
-        arguments["search_term"]
+        arguments["search_term"],
+        restaurant_id
     )
     
     if name == "continue_pending_action":
         return continue_pending_action(
-        arguments["clarification"]
+        arguments["clarification"],
+        restaurant_id
     )
     
     if name == "modify_order_item":
@@ -410,7 +414,7 @@ def execute_tool(name, arguments, turn_id=None):
 
 
 
-def run_agent(user_message,previous_response_id=None,turn_id=None):
+def run_agent(user_message,previous_response_id=None,turn_id=None,restaurant_id="sanis"):
     
 
 
@@ -479,7 +483,8 @@ def run_agent(user_message,previous_response_id=None,turn_id=None):
             result = execute_tool(
                 tool_call.name,
                 arguments,
-                turn_id=turn_id)
+                turn_id=turn_id,
+                restaurant_id=restaurant_id)
 
             tool_outputs.append({
                 "type": "function_call_output",
@@ -520,5 +525,6 @@ def run_agent(user_message,previous_response_id=None,turn_id=None):
             """,
             previous_response_id=response.id,
             input=tool_outputs,
-            tools=tools
+            tools=tools,
+
         )

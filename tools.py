@@ -5,7 +5,6 @@ from whatsapp import send_whatsapp_message
 from restaurant import load_menu
 
 
-ACTIVE_RESTAURANT = "burger_and_sauce"
 
 order = {
     "items": [],
@@ -63,8 +62,8 @@ def mark_order_changed():
         order["status"] = "building"
         order["validated_turn"] = None
 
-def search_menu(search_term):
-    menu = load_menu(ACTIVE_RESTAURANT)
+def search_menu(search_term, restaurant_id):
+    menu = load_menu(restaurant_id)
     results = []
 
     search_term = search_term.lower().strip()
@@ -110,7 +109,7 @@ def search_menu(search_term):
     return results
 
 
-def resolve_menu_item(search_term):
+def resolve_menu_item(search_term, restaurant_id):
     """
     Resolve a customer's description against the menu.
 
@@ -120,7 +119,9 @@ def resolve_menu_item(search_term):
     - ambiguous if multiple items match
     """
 
-    matches = search_menu(search_term)
+    matches = search_menu(
+        search_term,
+        restaurant_id)
 
     if len(matches) == 0:
         return {
@@ -139,13 +140,13 @@ def resolve_menu_item(search_term):
         "matches": matches
     }
     
-def add_item_to_order(search_term, quantity=1):
+def add_item_to_order(search_term, quantity=1, restaurant_id="sanis"):
     """
     Safely resolve a customer's menu description before
     changing the order.
     """
 
-    resolution = resolve_menu_item(search_term)
+    resolution = resolve_menu_item(search_term, restaurant_id)
 
     if resolution["status"] == "not_found":
         return {
@@ -176,7 +177,8 @@ def add_item_to_order(search_term, quantity=1):
 
     updated_order = add_to_order(
         item["id"],
-        quantity
+        quantity,
+        restaurant_id
     )
 
     clear_pending_action()
@@ -187,14 +189,16 @@ def add_item_to_order(search_term, quantity=1):
         "order": updated_order
     }
 
-def add_to_order(item_id, quantity=1):
-    
+def add_to_order(item_id, quantity=1,   restaurant_id="sanis"):
+    """
+    Add an item to the customer's order.
+    """
     locked = ensure_order_editable()
 
     if locked:
         return locked
 
-    menu = load_menu(ACTIVE_RESTAURANT)
+    menu = load_menu(restaurant_id)
 
     for category_name, items in menu["categories"].items():
         for item in items:
@@ -275,7 +279,7 @@ def remove_from_order(item_id, quantity=1):
     }
     
     
-def continue_pending_action(clarification):
+def continue_pending_action(clarification, restaurant_id="sanis"):
     """
     Continue an unfinished action using the customer's clarification.
     """
@@ -294,7 +298,8 @@ def continue_pending_action(clarification):
     if action == "add":
         return add_item_to_order(
             combined_search,
-            quantity
+            quantity,
+            restaurant_id=restaurant_id
         )
 
     return {
@@ -302,8 +307,8 @@ def continue_pending_action(clarification):
     }
     
     
-def remove_ingredient_from_order_item(line_id, ingredient):
-    menu = load_menu(ACTIVE_RESTAURANT)
+def remove_ingredient_from_order_item(line_id, ingredient, restaurant_id):
+    menu = load_menu(restaurant_id=restaurant_id)
 
     ingredient = ingredient.lower().strip()
 
@@ -364,7 +369,7 @@ def remove_ingredient_from_order_item(line_id, ingredient):
     }
     
 
-def modify_order_item(search_term, ingredient):
+def modify_order_item(search_term, ingredient,restaurant_id="sanis"):
     """
     Safely remove an ingredient from an item in the current order.
     """
@@ -400,7 +405,8 @@ def modify_order_item(search_term, ingredient):
 
     return remove_ingredient_from_order_item(
         item["line_id"],
-        ingredient
+        ingredient,
+        restaurant_id=restaurant_id
     )
     
 def split_order_line(line_id, split_quantity, copy_modifiers=True):
@@ -453,7 +459,7 @@ def split_order_line(line_id, split_quantity, copy_modifiers=True):
     
     
 
-def customize_order_item(search_term, ingredient, quantity=None):
+def customize_order_item(search_term, ingredient, quantity=None, restaurant_id="sanis"):
     """
     Remove an ingredient from some or all of a matching order item.
     """
@@ -583,7 +589,7 @@ def customize_order_item(search_term, ingredient, quantity=None):
 
 
 
-def customize_order_line(line_id, ingredient, quantity=None):
+def customize_order_line(line_id, ingredient, quantity=None, restaurant_id="sanis"):
     """
     Remove an ingredient from a specific order line.
 
@@ -601,7 +607,7 @@ def customize_order_line(line_id, ingredient, quantity=None):
     if target_line is None:
         return {"status": "line_not_found"}
 
-    menu = load_menu(ACTIVE_RESTAURANT)
+    menu = load_menu(restaurant_id=restaurant_id)
 
     menu_item = None
 

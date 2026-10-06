@@ -24,12 +24,28 @@ app.secret_key = "dev-secret-key"
 
 @app.route("/")
 def home():
-    return render_template("index.html")
 
+    restaurant_id = request.args.get(
+        "restaurant",
+        session.get("restaurant_id", "sanis")
+    )
+
+    allowed_restaurants = {
+        "sanis",
+        "burger_and_sauce"
+    }
+
+    if restaurant_id not in allowed_restaurants:
+        return "Unknown restaurant", 404
+
+    session["restaurant_id"] = restaurant_id
+
+    return render_template("index.html")
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    
 
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
@@ -48,11 +64,15 @@ def chat():
     # Each customer message is a new turn
     turn_id = session.get("turn_id", 0) + 1
     session["turn_id"] = turn_id
+    
+    restaurant_id = session.get("restaurant_id", "sanis")
+
 
     response, new_response_id = run_agent(
         message,
         previous_response_id,
-        turn_id
+        turn_id,
+        restaurant_id
     )
 
     session["previous_response_id"] = new_response_id
@@ -157,9 +177,12 @@ def realtime_tool():
 
     try:
 
+        restaurant_id = session.get("restaurant_id", "sanis")   
+
         result = execute_tool(
             tool_name,
-            arguments
+            arguments,
+            restaurant_id=restaurant_id
         )
 
         return jsonify({

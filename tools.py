@@ -2,6 +2,10 @@ import json
 import uuid
 from database import save_order
 from whatsapp import send_whatsapp_message
+from restaurant import load_menu
+
+
+ACTIVE_RESTAURANT = "burger_and_sauce"
 
 order = {
     "items": [],
@@ -37,11 +41,7 @@ def clear_pending_action():
     return pending_action
 
 
-def load_menu():
-    with open("menu.json", "r") as file:
-        menu = json.load(file)
 
-    return menu
 
 def ensure_order_editable():
 
@@ -64,7 +64,7 @@ def mark_order_changed():
         order["validated_turn"] = None
 
 def search_menu(search_term):
-    menu = load_menu()
+    menu = load_menu(ACTIVE_RESTAURANT)
     results = []
 
     search_term = search_term.lower().strip()
@@ -194,7 +194,7 @@ def add_to_order(item_id, quantity=1):
     if locked:
         return locked
 
-    menu = load_menu()
+    menu = load_menu(ACTIVE_RESTAURANT)
 
     for category_name, items in menu["categories"].items():
         for item in items:
@@ -303,7 +303,7 @@ def continue_pending_action(clarification):
     
     
 def remove_ingredient_from_order_item(line_id, ingredient):
-    menu = load_menu()
+    menu = load_menu(ACTIVE_RESTAURANT)
 
     ingredient = ingredient.lower().strip()
 
@@ -490,7 +490,7 @@ def customize_order_item(search_term, ingredient, quantity=None):
 
 
 # Validate the ingredient before changing any order state
-    menu = load_menu()
+    menu = load_menu(ACTIVE_RESTAURANT)
 
     menu_item = None
 
@@ -601,7 +601,7 @@ def customize_order_line(line_id, ingredient, quantity=None):
     if target_line is None:
         return {"status": "line_not_found"}
 
-    menu = load_menu()
+    menu = load_menu(ACTIVE_RESTAURANT)
 
     menu_item = None
 

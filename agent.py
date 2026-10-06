@@ -333,9 +333,14 @@ tools = [
 # TOOL EXECUTION
 # --------------------------------------------------
 
-def execute_tool(name, arguments, turn_id=None,     restaurant_id="sanis"):
+def execute_tool(
+    name,
+    arguments,
+    turn_id=None,
+    restaurant_id="sanis",
+    session_id=None
+):
     print(f"[TOOL CALL] {name} {arguments}")
-
 
     if name == "search_menu":
         return search_menu(
@@ -347,64 +352,85 @@ def execute_tool(name, arguments, turn_id=None,     restaurant_id="sanis"):
         return add_item_to_order(
             arguments["search_term"],
             arguments["quantity"],
-            restaurant_id
+            restaurant_id,
+            session_id
         )
 
     if name == "remove_from_order":
         return remove_from_order(
             arguments["item_id"],
-            arguments["quantity"]
+            arguments["quantity"],
+            session_id
         )
 
     if name == "get_order":
-        return get_order()
-    
+        return get_order(
+            session_id
+        )
+
     if name == "resolve_menu_item":
         return resolve_menu_item(
-        arguments["search_term"],
-        restaurant_id
-    )
-    
+            arguments["search_term"],
+            restaurant_id
+        )
+
     if name == "continue_pending_action":
         return continue_pending_action(
-        arguments["clarification"],
-        restaurant_id
-    )
-    
+            arguments["clarification"],
+            restaurant_id,
+            session_id
+        )
+
     if name == "modify_order_item":
         return modify_order_item(
-        arguments["search_term"],
-        arguments["ingredient"]
-    )
-        
+            arguments["search_term"],
+            arguments["ingredient"],
+            restaurant_id,
+            session_id
+        )
+
     if name == "customize_order_item":
         return customize_order_item(
-        arguments["search_term"],
-        arguments["ingredient"],
-        arguments["quantity"]
-    )
+            arguments["search_term"],
+            arguments["ingredient"],
+            arguments["quantity"],
+            restaurant_id,
+            session_id
+        )
 
     if name == "customize_order_line":
         return customize_order_line(
             arguments["line_id"],
             arguments["ingredient"],
-            arguments["quantity"]
+            arguments["quantity"],
+            restaurant_id,
+            session_id
         )
+
     if name == "validate_order":
-        return validate_order(turn_id)
+        return validate_order(
+            turn_id,
+            session_id
+        )
 
     if name == "confirm_order":
-        return confirm_order(turn_id)
-    
+        return confirm_order(
+            turn_id,
+            session_id
+        )
+
     if name == "submit_order":
-        return submit_order()
-    
+        return submit_order(
+            session_id
+        )
+
     if name == "start_new_order":
-     return start_new_order()
-    
+        return start_new_order(
+            session_id
+        )
+
     return {
         "error": f"Unknown tool: {name}"
-    
     }
 
 
@@ -414,7 +440,12 @@ def execute_tool(name, arguments, turn_id=None,     restaurant_id="sanis"):
 
 
 
-def run_agent(user_message,previous_response_id=None,turn_id=None,restaurant_id="sanis"):
+def run_agent(
+            user_message,
+              previous_response_id=None,
+              turn_id=None,
+              restaurant_id="sanis",
+              session_id=None):
     
 
 
@@ -484,7 +515,8 @@ def run_agent(user_message,previous_response_id=None,turn_id=None,restaurant_id=
                 tool_call.name,
                 arguments,
                 turn_id=turn_id,
-                restaurant_id=restaurant_id)
+                restaurant_id=restaurant_id,
+                session_id=session_id)
 
             tool_outputs.append({
                 "type": "function_call_output",
@@ -526,5 +558,6 @@ def run_agent(user_message,previous_response_id=None,turn_id=None,restaurant_id=
             previous_response_id=response.id,
             input=tool_outputs,
             tools=tools,
+            
 
         )

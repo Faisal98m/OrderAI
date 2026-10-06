@@ -45,7 +45,6 @@ def home():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    
 
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
@@ -59,28 +58,36 @@ def chat():
 
     message = data["message"]
 
-    previous_response_id = session.get("previous_response_id")
+    previous_response_id = session.get(
+        "previous_response_id"
+    )
 
     # Each customer message is a new turn
     turn_id = session.get("turn_id", 0) + 1
     session["turn_id"] = turn_id
-    
-    restaurant_id = session.get("restaurant_id", "sanis")
 
+    restaurant_id = session.get(
+        "restaurant_id",
+        "sanis"
+    )
+
+    session_id = session["session_id"]
 
     response, new_response_id = run_agent(
         message,
         previous_response_id,
         turn_id,
-        restaurant_id
+        restaurant_id,
+        session_id
     )
 
-    session["previous_response_id"] = new_response_id
+    session["previous_response_id"] = (
+        new_response_id
+    )
 
     return jsonify({
         "message": response
     })
-
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
@@ -160,6 +167,9 @@ def realtime_session():
 @app.route("/realtime-tool", methods=["POST"])
 def realtime_tool():
 
+    if "session_id" not in session:
+        session["session_id"] = str(uuid.uuid4())
+
     data = request.get_json()
 
     if not data:
@@ -175,14 +185,20 @@ def realtime_tool():
             "error": "Tool name is required."
         }), 400
 
-    try:
+    restaurant_id = session.get(
+        "restaurant_id",
+        "sanis"
+    )
 
-        restaurant_id = session.get("restaurant_id", "sanis")   
+    session_id = session["session_id"]
+
+    try:
 
         result = execute_tool(
             tool_name,
             arguments,
-            restaurant_id=restaurant_id
+            restaurant_id=restaurant_id,
+            session_id=session_id
         )
 
         return jsonify({
@@ -199,6 +215,7 @@ def realtime_tool():
         return jsonify({
             "error": str(error)
         }), 500
+        
         
 @app.route("/admin/orders-data", methods=["GET"])
 def admin_orders_data():

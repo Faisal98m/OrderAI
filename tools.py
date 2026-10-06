@@ -1,5 +1,6 @@
 import json
 import uuid
+from session_store import get_session_state
 from database import save_order
 from whatsapp import send_whatsapp_message
 from restaurant import load_menu
@@ -20,19 +21,48 @@ pending_action = {
 
 
 
-def get_pending_action():
-    return pending_action
+def get_pending_action(session_id=None):
+
+    state = get_session_state(
+        session_id
+    )
+
+    return state["pending_action"]
 
 
-def set_pending_action(action, quantity, search_term):
+def set_pending_action(
+    action,
+    quantity,
+    search_term,
+    session_id=None
+):
+
+    state = get_session_state(
+        session_id
+    )
+
+    pending_action = state[
+        "pending_action"
+    ]
+
     pending_action["action"] = action
     pending_action["quantity"] = quantity
     pending_action["search_term"] = search_term
 
     return pending_action
 
+def clear_pending_action(
+    session_id=None
+):
 
-def clear_pending_action():
+    state = get_session_state(
+        session_id
+    )
+
+    pending_action = state[
+        "pending_action"
+    ]
+
     pending_action["action"] = None
     pending_action["quantity"] = None
     pending_action["search_term"] = None
@@ -42,21 +72,41 @@ def clear_pending_action():
 
 
 
-def ensure_order_editable():
+def ensure_order_editable(
+    session_id=None
+):
 
-    if order["status"] in ["confirmed", "submitted"]:
+    state = get_session_state(
+        session_id
+    )
+
+    order = state["order"]
+
+    if order["status"] in [
+        "confirmed",
+        "submitted"
+    ]:
+
         return {
             "status": "order_locked",
             "order_status": order["status"],
-            "message": "This order can no longer be changed."
+            "message": (
+                "This order can no longer "
+                "be changed."
+            )
         }
 
     return None
 
-def mark_order_changed():
-    """
-    Return the order to building state whenever its contents change.
-    """
+def mark_order_changed(
+    session_id=None
+):
+
+    state = get_session_state(
+        session_id
+    )
+
+    order = state["order"]
 
     if order["status"] != "submitted":
         order["status"] = "building"
@@ -140,98 +190,175 @@ def resolve_menu_item(search_term, restaurant_id):
         "matches": matches
     }
     
-def add_item_to_order(search_term, quantity=1, restaurant_id="sanis"):
+def add_item_to_order(
+    search_term,
+    quantity=1,
+    restaurant_id="sanis",
+    session_id=None
+):
     """
-    Safely resolve a customer's menu description before
-    changing the order.
+    Safely resolve a customer's menu
+    description before changing the order.
     """
 
-    resolution = resolve_menu_item(search_term, restaurant_id)
+    state = get_session_state(
+        session_id
+    )
+
+    order = state["order"]
+
+    resolution = resolve_menu_item(
+        search_term,
+        restaurant_id
+    )
 
     if resolution["status"] == "not_found":
         return {
             "status": "not_found",
-            "message": "No matching menu item was found."
+            "message": (
+                "No matching menu item "
+                "was found."
+            )
         }
-        
+
     if order["status"] == "submitted":
         return {
-        "status": "new_order_required",
-        "message": "The previous order has already been submitted. Start a new order first."
-    }
+            "status": "new_order_required",
+            "message": (
+                "The previous order has already "
+                "been submitted. Start a new "
+                "order first."
+            )
+        }
 
     if resolution["status"] == "ambiguous":
 
-     set_pending_action(
-        action="add",
-        quantity=quantity,
-        search_term=search_term
-    )
+        set_pending_action(
+            action="add",
+            quantity=quantity,
+            search_term=search_term,
+            session_id=session_id
+        )
 
-     return {
-        "status": "ambiguous",
-        "matches": resolution["matches"],
-        "pending_action": get_pending_action()
-    }
+        return {
+            "status": "ambiguous",
+            "matches": resolution["matches"],
+            "pending_action":
+                get_pending_action(
+                    session_id
+                )
+        }
+
     item = resolution["item"]
 
     updated_order = add_to_order(
         item["id"],
         quantity,
-        restaurant_id
+        restaurant_id,
+        session_id
     )
 
-    clear_pending_action()
+    clear_pending_action(
+        session_id
+    )
 
     return {
         "status": "added",
         "item": item,
         "order": updated_order
     }
+    
+    
+def add_to_order(
+    item_id,
+    quantity=1,
+    restaurant_id="sanis",
+    session_id=None
+):
+    """
+    Add an item to the customer's
+    session-specific order.
+    """
 
-def add_to_order(item_id, quantity=1,   restaurant_id="sanis"):
-    """
-    Add an item to the customer's order.
-    """
-    locked = ensure_order_editable()
+    state = get_session_state(
+        session_id
+    )
+
+    order = state["order"]
+
+    locked = ensure_order_editable(
+        session_id
+    )
 
     if locked:
         return locked
 
-    menu = load_menu(restaurant_id)
+    menu = load_menu(
+        restaurant_id
+    )
 
-    for category_name, items in menu["categories"].items():
+    for category_name, items in (
+        menu["categories"].items()
+    ):
+
         for item in items:
 
-            # item is from menu.json
             if item["id"] == item_id:
 
-                for order_item in order["items"]:
+                for order_item in (
+                    order["items"]
+                ):
 
-                    # order_item is from the customer's order
-                    if order_item["item_id"] == item_id:
-                        order_item["quantity"] += quantity
-                        mark_order_changed() 
+                    if (
+                        order_item["item_id"]
+                        == item_id
+                    ):
+
+                        order_item[
+                            "quantity"
+                        ] += quantity
+
+                        mark_order_changed(
+                            session_id
+                        )
+
                         return order
 
                 order["items"].append({
-                    "line_id": str(uuid.uuid4()),
+                    "line_id": str(
+                        uuid.uuid4()
+                    ),
                     "item_id": item["id"],
                     "name": item["name"],
                     "price": item["price"],
                     "quantity": quantity,
                     "modifiers": []
                 })
-                mark_order_changed() 
+
+                mark_order_changed(
+                    session_id
+                )
 
                 return order
 
-    return {"error": "Item not found"}
+    return {
+        "error": "Item not found"
+    }
 
 
-def get_order():
+def get_order(
+    session_id=None
+):
+
+    state = get_session_state(
+        session_id
+    )
+
+    order = state["order"]
+
     total = sum(
-        item["price"] * item["quantity"]
+        item["price"]
+        * item["quantity"]
         for item in order["items"]
     )
 
@@ -244,13 +371,18 @@ def get_order():
     }
 
 
-def remove_from_order(item_id, quantity=1):
+def remove_from_order(
+    item_id,
+    quantity=1,
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     for item in order["items"]:
 
         if item["item_id"] == item_id:
 
-            # Validate before changing state
             if quantity <= 0:
                 return {
                     "status": "invalid_quantity",
@@ -270,19 +402,29 @@ def remove_from_order(item_id, quantity=1):
             if item["quantity"] == 0:
                 order["items"].remove(item)
 
-            mark_order_changed()
+            mark_order_changed(session_id)
 
-            return get_order()
+            return get_order(session_id)
 
     return {
         "status": "item_not_found"
     }
     
     
-def continue_pending_action(clarification, restaurant_id="sanis"):
+    
+def continue_pending_action(
+    clarification,
+    restaurant_id="sanis",
+    session_id=None
+):
     """
-    Continue an unfinished action using the customer's clarification.
+    Continue an unfinished action using
+    the customer's clarification.
     """
+
+    pending_action = get_pending_action(
+        session_id
+    )
 
     if pending_action["action"] is None:
         return {
@@ -291,15 +433,23 @@ def continue_pending_action(clarification, restaurant_id="sanis"):
 
     action = pending_action["action"]
     quantity = pending_action["quantity"]
-    original_search = pending_action["search_term"]
 
-    combined_search = f"{clarification} {original_search}"
+    original_search = pending_action[
+        "search_term"
+    ]
+
+    combined_search = (
+        f"{clarification} "
+        f"{original_search}"
+    )
 
     if action == "add":
+
         return add_item_to_order(
             combined_search,
             quantity,
-            restaurant_id=restaurant_id
+            restaurant_id,
+            session_id
         )
 
     return {
@@ -307,12 +457,19 @@ def continue_pending_action(clarification, restaurant_id="sanis"):
     }
     
     
-def remove_ingredient_from_order_item(line_id, ingredient, restaurant_id):
-    menu = load_menu(restaurant_id=restaurant_id)
+def remove_ingredient_from_order_item(
+    line_id,
+    ingredient,
+    restaurant_id,
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
+
+    menu = load_menu(restaurant_id)
 
     ingredient = ingredient.lower().strip()
 
-    # Find the exact order line
     target_line = None
 
     for order_item in order["items"]:
@@ -325,7 +482,6 @@ def remove_ingredient_from_order_item(line_id, ingredient, restaurant_id):
             "status": "line_not_found"
         }
 
-    # Find the corresponding menu item
     menu_item = None
 
     for category_name, items in menu["categories"].items():
@@ -339,7 +495,6 @@ def remove_ingredient_from_order_item(line_id, ingredient, restaurant_id):
             "status": "item_not_found"
         }
 
-    # Validate that the ingredient actually exists
     ingredients = [
         item_ingredient.lower()
         for item_ingredient in menu_item.get("ingredients", [])
@@ -352,7 +507,6 @@ def remove_ingredient_from_order_item(line_id, ingredient, restaurant_id):
             "ingredient": ingredient
         }
 
-    # Apply the modification only to this exact order line
     modifier = {
         "type": "remove",
         "ingredient": ingredient
@@ -360,8 +514,8 @@ def remove_ingredient_from_order_item(line_id, ingredient, restaurant_id):
 
     if modifier not in target_line["modifiers"]:
         target_line["modifiers"].append(modifier)
-    
-    mark_order_changed() 
+
+    mark_order_changed(session_id)
 
     return {
         "status": "modified",
@@ -369,17 +523,20 @@ def remove_ingredient_from_order_item(line_id, ingredient, restaurant_id):
     }
     
 
-def modify_order_item(search_term, ingredient,restaurant_id="sanis"):
-    """
-    Safely remove an ingredient from an item in the current order.
-    """
+def modify_order_item(
+    search_term,
+    ingredient,
+    restaurant_id="sanis",
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     search_term = search_term.lower().strip()
     ingredient = ingredient.lower().strip()
 
     matches = []
 
-    # Search only the customer's current order
     for order_item in order["items"]:
 
         searchable_text = order_item["name"].lower()
@@ -387,34 +544,37 @@ def modify_order_item(search_term, ingredient,restaurant_id="sanis"):
         if search_term in searchable_text:
             matches.append(order_item)
 
-    # No matching item in the order
     if len(matches) == 0:
         return {
             "status": "item_not_found"
         }
 
-    # More than one possible target
     if len(matches) > 1:
         return {
             "status": "ambiguous",
             "matches": matches
         }
 
-    # Exactly one target
     item = matches[0]
 
     return remove_ingredient_from_order_item(
         item["line_id"],
         ingredient,
-        restaurant_id=restaurant_id
+        restaurant_id,
+        session_id
     )
     
-def split_order_line(line_id, split_quantity, copy_modifiers=True):
-    """
-    Split part of an order line into a new independent order line.
-    """
+def split_order_line(
+    line_id,
+    split_quantity,
+    copy_modifiers=True,
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     for order_item in order["items"]:
+
         if order_item["line_id"] == line_id:
 
             if split_quantity <= 0:
@@ -427,10 +587,8 @@ def split_order_line(line_id, split_quantity, copy_modifiers=True):
                     "status": "invalid_quantity"
                 }
 
-            # Reduce the original line
             order_item["quantity"] -= split_quantity
 
-            # Create a new independent line
             new_line = {
                 "line_id": str(uuid.uuid4()),
                 "item_id": order_item["item_id"],
@@ -438,14 +596,15 @@ def split_order_line(line_id, split_quantity, copy_modifiers=True):
                 "price": order_item["price"],
                 "quantity": split_quantity,
                 "modifiers": (
-                list(order_item["modifiers"])
-                if copy_modifiers
-                else [])
+                    list(order_item["modifiers"])
+                    if copy_modifiers
+                    else []
+                )
             }
 
             order["items"].append(new_line)
-            
-            mark_order_changed()
+
+            mark_order_changed(session_id)
 
             return {
                 "status": "split",
@@ -459,17 +618,21 @@ def split_order_line(line_id, split_quantity, copy_modifiers=True):
     
     
 
-def customize_order_item(search_term, ingredient, quantity=None, restaurant_id="sanis"):
-    """
-    Remove an ingredient from some or all of a matching order item.
-    """
+def customize_order_item(
+    search_term,
+    ingredient,
+    quantity=None,
+    restaurant_id="sanis",
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     search_term = search_term.lower().strip()
     ingredient = ingredient.lower().strip()
 
     matches = []
 
-    # Find matching order lines
     for order_item in order["items"]:
         if search_term in order_item["name"].lower():
             matches.append(order_item)
@@ -492,11 +655,11 @@ def customize_order_item(search_term, ingredient, quantity=None, restaurant_id="
         "ingredient": ingredient
     }
 
-    modifier_already_applied = modifier in target_line["modifiers"]
+    modifier_already_applied = (
+        modifier in target_line["modifiers"]
+    )
 
-
-# Validate the ingredient before changing any order state
-    menu = load_menu(ACTIVE_RESTAURANT)
+    menu = load_menu(restaurant_id)
 
     menu_item = None
 
@@ -522,13 +685,13 @@ def customize_order_item(search_term, ingredient, quantity=None, restaurant_id="
             "item": menu_item["name"],
             "ingredient": ingredient
         }
-        
 
-    # No quantity specified = modify the whole line
     if quantity is None:
         return remove_ingredient_from_order_item(
             target_line["line_id"],
-            ingredient
+            ingredient,
+            restaurant_id,
+            session_id
         )
 
     if quantity <= 0 or quantity > target_line["quantity"]:
@@ -536,19 +699,19 @@ def customize_order_item(search_term, ingredient, quantity=None, restaurant_id="
             "status": "invalid_quantity"
         }
 
-    # The whole line already has this modification, but the customer
-    # now wants it to apply to only part of the quantity.
     if (
         modifier_already_applied
-        and quantity is not None
         and quantity < target_line["quantity"]
     ):
-        standard_quantity = target_line["quantity"] - quantity
+        standard_quantity = (
+            target_line["quantity"] - quantity
+        )
 
         split_result = split_order_line(
             target_line["line_id"],
             standard_quantity,
-            copy_modifiers=False
+            copy_modifiers=False,
+            session_id=session_id
         )
 
         if split_result["status"] != "split":
@@ -558,21 +721,21 @@ def customize_order_item(search_term, ingredient, quantity=None, restaurant_id="
             "status": "modified",
             "modified_line": target_line,
             "standard_line": split_result["new_line"],
-            "order": get_order()
+            "order": get_order(session_id)
         }
 
-
-    # Customer wants every item on this line modified
     if quantity == target_line["quantity"]:
         return remove_ingredient_from_order_item(
             target_line["line_id"],
-            ingredient
+            ingredient,
+            restaurant_id,
+            session_id
         )
 
-    # Customer only wants some of them modified
     split_result = split_order_line(
         target_line["line_id"],
-        quantity
+        quantity,
+        session_id=session_id
     )
 
     if split_result["status"] != "split":
@@ -582,20 +745,24 @@ def customize_order_item(search_term, ingredient, quantity=None, restaurant_id="
 
     return remove_ingredient_from_order_item(
         new_line["line_id"],
-        ingredient
+        ingredient,
+        restaurant_id,
+        session_id
     )
     
 
 
 
 
-def customize_order_line(line_id, ingredient, quantity=None, restaurant_id="sanis"):
-    """
-    Remove an ingredient from a specific order line.
-
-    The line has already been identified, so this function does not
-    perform fuzzy product matching.
-    """
+def customize_order_line(
+    line_id,
+    ingredient,
+    quantity=None,
+    restaurant_id="sanis",
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     target_line = None
 
@@ -605,9 +772,11 @@ def customize_order_line(line_id, ingredient, quantity=None, restaurant_id="sani
             break
 
     if target_line is None:
-        return {"status": "line_not_found"}
+        return {
+            "status": "line_not_found"
+        }
 
-    menu = load_menu(restaurant_id=restaurant_id)
+    menu = load_menu(restaurant_id)
 
     menu_item = None
 
@@ -618,7 +787,9 @@ def customize_order_line(line_id, ingredient, quantity=None, restaurant_id="sani
                 break
 
     if menu_item is None:
-        return {"status": "item_not_found"}
+        return {
+            "status": "item_not_found"
+        }
 
     ingredient = ingredient.lower().strip()
 
@@ -638,22 +809,27 @@ def customize_order_line(line_id, ingredient, quantity=None, restaurant_id="sani
         quantity = target_line["quantity"]
 
     if quantity <= 0 or quantity > target_line["quantity"]:
-        return {"status": "invalid_quantity"}
+        return {
+            "status": "invalid_quantity"
+        }
 
     if quantity == target_line["quantity"]:
         result = remove_ingredient_from_order_item(
             target_line["line_id"],
-            ingredient
+            ingredient,
+            restaurant_id,
+            session_id
         )
 
         return {
             "status": result["status"],
-            "order": get_order()
+            "order": get_order(session_id)
         }
 
     split_result = split_order_line(
         target_line["line_id"],
-        quantity
+        quantity,
+        session_id=session_id
     )
 
     if split_result["status"] != "split":
@@ -663,19 +839,23 @@ def customize_order_line(line_id, ingredient, quantity=None, restaurant_id="sani
 
     result = remove_ingredient_from_order_item(
         new_line["line_id"],
-        ingredient
+        ingredient,
+        restaurant_id,
+        session_id
     )
 
     return {
         "status": result["status"],
-        "order": get_order()
+        "order": get_order(session_id)
     }
     
 
-def validate_order(turn_id=None):
-    """
-    Validate whether the current order is ready for confirmation.
-    """
+def validate_order(
+    turn_id=None,
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     if len(order["items"]) == 0:
         return {
@@ -695,12 +875,19 @@ def validate_order(turn_id=None):
 
     return {
         "status": "valid",
-        "order": get_order()
+        "order": get_order(session_id)
     }
     
-def start_new_order():
+def start_new_order(
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
-    if order["status"] not in ["confirmed", "submitted"]:
+    if order["status"] not in [
+        "confirmed",
+        "submitted"
+    ]:
         return {
             "status": "new_order_not_allowed",
             "order_status": order["status"]
@@ -708,19 +895,21 @@ def start_new_order():
 
     order["items"].clear()
     order["status"] = "building"
+    order["validated_turn"] = None
 
-    clear_pending_action()
+    clear_pending_action(session_id)
 
     return {
         "status": "new_order_started",
-        "order": get_order()
+        "order": get_order(session_id)
     }
     
-def confirm_order(turn_id=None):
-    """
-    Confirm an order only after it has passed validation
-    and is awaiting explicit customer confirmation.
-    """
+def confirm_order(
+    turn_id=None,
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     if order["status"] != "awaiting_confirmation":
         return {
@@ -732,13 +921,14 @@ def confirm_order(turn_id=None):
 
     return {
         "status": "confirmed",
-        "order": get_order()
+        "order": get_order(session_id)
     }
     
-def submit_order():
-    """
-    Submit an order only after it has been explicitly confirmed.
-    """
+def submit_order(
+    session_id=None
+):
+    state = get_session_state(session_id)
+    order = state["order"]
 
     if order["status"] != "confirmed":
         return {
@@ -748,23 +938,25 @@ def submit_order():
 
     order["status"] = "submitted"
 
-    current_order = get_order()
-    
+    current_order = get_order(session_id)
+
     order_id = save_order(
-    current_order
-)
+        current_order
+    )
 
     summary_lines = []
 
     for item in current_order["items"]:
 
         line_total = (
-            item["price"] *
-            item["quantity"]
+            item["price"]
+            * item["quantity"]
         )
 
         summary_lines.append(
-            f'{item["quantity"]}x {item["name"]} - £{line_total:.2f}'
+            f'{item["quantity"]}x '
+            f'{item["name"]} - '
+            f'£{line_total:.2f}'
         )
 
     staff_summary = "\n".join(
@@ -777,10 +969,10 @@ def submit_order():
         f'Total: £{current_order["total"]:.2f}\n'
         "Status: Submitted"
     )
-    
+
     whatsapp_result = send_whatsapp_message(
-    staff_message
-    )       
+        staff_message
+    )
 
     return {
         "status": "submitted",

@@ -7,17 +7,6 @@ from restaurant import load_menu
 
 
 
-order = {
-    "items": [],
-    "status": "building",
-    "validated_turn": None
-}
-
-pending_action = {
-    "action": None,
-    "quantity": None,
-    "search_term": None
-}
 
 
 

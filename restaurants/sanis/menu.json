@@ -1,75 +1,244 @@
 {
-  "restaurant": "OrderAI Burger House",
+  "restaurant": "Sanis",
   "currency": "GBP",
   "currency_symbol": "£",
-  "categories": {
-    "burgers": [
-             {
-            "id": "B001",
-            "name": "Classic Chicken Burger",
-            "price": 7.95,
-            "description": "Grilled chicken breast, lettuce, tomato and house sauce",
-            "ingredients": [
-                "grilled chicken breast",
-                "lettuce",
-                "tomato",
-                "house sauce"
-            ]
-            },
-            {
-            "id": "B002",
-            "name": "Spicy Chicken Burger",
-            "price": 8.45,
-            "description": "Spicy chicken breast, lettuce, jalapenos and chilli sauce",
-            "ingredients": [
-                "spicy chicken breast",
-                "lettuce",
-                "jalapenos",
-                "chilli sauce"
-            ]
-            },
-            {
-            "id": "B003",
-            "name": "Classic Beef Burger",
-            "price": 8.95,
-            "description": "Beef patty, cheese, lettuce, onions and burger sauce",
-            "ingredients": [
-                "beef patty",
-                "cheese",
-                "lettuce",
-                "onions",
-                "burger sauce"
-            ]
-            }
-    ],
-    "sides": [
-      {
-        "id": "S001",
-        "name": "Fries",
-        "price": 2.95,
-        "description": "Crispy salted fries"
-      },
-      {
-        "id": "S002",
-        "name": "Onion Rings",
-        "price": 3.45,
-        "description": "Crispy battered onion rings"
-      }
-    ],
-    "drinks": [
-      {
-        "id": "D001",
-        "name": "Coca-Cola",
-        "aliases": ["coke", "cola", "coca cola"],
-        "price": 1.95,
-        "description": "330ml can"
-      },
-      {
-        "id": "D002",
-        "name": "Water",
-        "price": 1.50,
-        "description": "500ml bottle"
-      }
-    ]
-  }
+  "source": {
+    "type": "website",
+    "url": null
+  },
+  "import_status": "needs_review",
+  "categories": [
+    {
+      "name": "Loaded Boxes",
+      "description": "BOXED. LOADED. LEGENDARY.",
+      "items": [
+        {
+          "id": "burger_loaded_box",
+          "name": "Burger Loaded Box",
+          "price": 7.99,
+          "description": "THE BOX, THE MYTH, THE LEGEND. BURGER, CAJUN FRIES, CREAMY PEPPER CHICKEN.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "THE BOX, THE MYTH, THE LEGEND. BURGER, CAJUN FRIES, CREAMY PEPPER CHICKEN."
+        },
+        {
+          "id": "crispy_wrap_loaded_box",
+          "name": "Crispy Wrap Loaded Box",
+          "price": 7.99,
+          "description": "CRISPY CHICKEN WRAP, CAJUN FRIES, CREAMY PEPPER CHICKEN, SIGNATURE SAUCES.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "CRISPY CHICKEN WRAP, CAJUN FRIES, CREAMY PEPPER CHICKEN, SIGNATURE SAUCES."
+        },
+        {
+          "id": "chicken_sub_loaded_box",
+          "name": "Chicken Sub Loaded Box",
+          "price": 7.99,
+          "description": "TOASTED CHICKEN SUB, CAJUN FRIES, CREAMY PEPPER CHICKEN, STANDS OUT.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "TOASTED CHICKEN SUB, CAJUN FRIES, CREAMY PEPPER CHICKEN, STANDS OUT."
+        },
+        {
+          "id": "french_taco_loaded_box",
+          "name": "French Taco Loaded Box",
+          "price": 8.49,
+          "description": "A PROPER CRUNCH, CHEESY FRENCH TACO, CAJUN FRIES, CREAMY CHICKEN.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "A PROPER CRUNCH, CHEESY FRENCH TACO, CAJUN FRIES, CREAMY CHICKEN."
+        }
+      ]
+    },
+    {
+      "name": "Single Chicken Burgers",
+      "description": "SINGLE PATTY. MASSIVE FLAVOUR.",
+      "items": [
+        {
+          "id": "firecracker",
+          "name": "Firecracker",
+          "price": 3.99,
+          "description": "SPICE, SPICE BABY. THIS SAVAGE WILL GET YOUR TASTEBUDS FIRING.",
+          "tags": [
+            "spicy"
+          ],
+          "status": "needs_review",
+          "source_text": "SPICE, SPICE BABY. THIS SAVAGE WILL GET YOUR TASTEBUDS FIRING."
+        },
+        {
+          "id": "hawaiian_heat",
+          "name": "Hawaiian Heat",
+          "price": 3.99,
+          "description": "A FAN FAVOURITE. SWEET, SPICY AND PACKED WITH FLAVOUR.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "A FAN FAVOURITE. SWEET, SPICY AND PACKED WITH FLAVOUR."
+        },
+        {
+          "id": "inferno",
+          "name": "Inferno",
+          "price": 3.99,
+          "description": "FEELING SPICY? ADD SOME CHILLI TO YOUR LIFE. SWEETNESS MEETS SERIOUS HEAT.",
+          "tags": [
+            "spicy"
+          ],
+          "status": "needs_review",
+          "source_text": "FEELING SPICY? ADD SOME CHILLI TO YOUR LIFE. SWEETNESS MEETS SERIOUS HEAT."
+        },
+        {
+          "id": "bbq",
+          "name": "Bbq",
+          "price": 3.99,
+          "description": "BBQ YOU'LL CRAVE. RICH, STICKY AND ALWAYS WORTH THE WAIT.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "BBQ YOU'LL CRAVE. RICH, STICKY AND ALWAYS WORTH THE WAIT."
+        },
+        {
+          "id": "creamy_pepper",
+          "name": "Creamy Pepper",
+          "price": 3.99,
+          "description": "MARINATED CHICKEN, FRESHLY BREADED AND GLAZED IN OUR FAMOUS CREAMY PEPPER SAUCE.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "MARINATED CHICKEN, FRESHLY BREADED AND GLAZED IN OUR FAMOUS CREAMY PEPPER SAUCE."
+        },
+        {
+          "id": "original",
+          "name": "Original",
+          "price": 3.99,
+          "description": "JUICY CHICKEN PATTY IN A BURGER. SIMPLE. CLASSIC.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "JUICY CHICKEN PATTY IN A BURGER. SIMPLE. CLASSIC."
+        }
+      ]
+    },
+    {
+      "name": "Mains",
+      "description": "HEARTY. SATISFYING. MADE FRESH.",
+      "items": [
+        {
+          "id": "cajun_fries",
+          "name": "Cajun Fries",
+          "price": 2.0,
+          "description": "CRISPY FRIES WITH HOMEMADE GARLIC SAUCE AND SANI'S PINK SAUCE",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "CRISPY FRIES WITH HOMEMADE GARLIC SAUCE AND SANI'S PINK SAUCE"
+        },
+        {
+          "id": "chicken_fries",
+          "name": "Chicken & Fries",
+          "price": 3.99,
+          "description": "JUICY FRIED CHICKEN ON A BED OF CRISPY FRIES WITH OUR CREAMY PEPPER SAUCE",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "JUICY FRIED CHICKEN ON A BED OF CRISPY FRIES WITH OUR CREAMY PEPPER SAUCE"
+        },
+        {
+          "id": "sani_s_crispy_wrap",
+          "name": "Sani'S Crispy Wrap",
+          "price": 3.99,
+          "description": "CRISPY CHICKEN STRIPS, CHEESE, SALAD AND SIGNATURE SAUCES WRAPPED TO PERFECTION",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "CRISPY CHICKEN STRIPS, CHEESE, SALAD AND SIGNATURE SAUCES WRAPPED TO PERFECTION"
+        },
+        {
+          "id": "sani_s_chicken_sub",
+          "name": "Sani'S Chicken Sub",
+          "price": 3.99,
+          "description": "SOFT BRIOCHE BAGUETTE WITH CREAMY PEPPER CHICKEN, ONIONS, LETTUCE AND HOMEMADE SAUCES.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "SOFT BRIOCHE BAGUETTE WITH CREAMY PEPPER CHICKEN, ONIONS, LETTUCE AND HOMEMADE SAUCES."
+        },
+        {
+          "id": "sani_s_french_taco",
+          "name": "Sani'S French Taco",
+          "price": 3.99,
+          "description": "CREAMY PEPPER CHICKEN, CHEESE, ONIONS, LETTUCE AND OUR SIGNATURE SAUCES.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "CREAMY PEPPER CHICKEN, CHEESE, ONIONS, LETTUCE AND OUR SIGNATURE SAUCES."
+        }
+      ]
+    },
+    {
+      "name": "Appetisers",
+      "description": "PERFECT TO SHARE. OR NOT.",
+      "items": [
+        {
+          "id": "3_chicken_strips",
+          "name": "3 Chicken Strips",
+          "price": 2.99,
+          "description": "CRISPY ORIGINAL COATED CHICKEN STRIPS WITH A HOMEMADE SUNSET AND GARLIC SAUCE.",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "CRISPY ORIGINAL COATED CHICKEN STRIPS WITH A HOMEMADE SUNSET AND GARLIC SAUCE."
+        }
+      ]
+    },
+    {
+      "name": "Drinks",
+      "description": "REFRESH. RELOAD. REPEAT.",
+      "items": [
+        {
+          "id": "ice_mango",
+          "name": "Ice Mango",
+          "price": 1.0,
+          "description": "",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "ICE MANGO"
+        },
+        {
+          "id": "ice_cola_max",
+          "name": "Ice Cola Max",
+          "price": 1.0,
+          "description": "",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "ICE COLA MAX"
+        },
+        {
+          "id": "ice_orange",
+          "name": "Ice Orange",
+          "price": 1.0,
+          "description": "",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "ICE ORANGE"
+        },
+        {
+          "id": "ice_cola",
+          "name": "Ice Cola",
+          "price": 1.0,
+          "description": "",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "ICE COLA"
+        },
+        {
+          "id": "ice_lemon",
+          "name": "Ice Lemon",
+          "price": 1.0,
+          "description": "",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "ICE LEMON"
+        },
+        {
+          "id": "water_bottle",
+          "name": "Water Bottle",
+          "price": 1.0,
+          "description": "",
+          "tags": [],
+          "status": "needs_review",
+          "source_text": "WATER BOTTLE"
+        }
+      ]
+    }
+  ]
 }

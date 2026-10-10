@@ -1,9 +1,9 @@
 import json
 import uuid
-from session_store import get_session_state
-from database import save_order
-from whatsapp import send_whatsapp_message
-from restaurant import load_menu
+from orderai.core.session_store import get_session_state
+from orderai.services.database import save_order
+from orderai.services.whatsapp import send_whatsapp_message
+from orderai.core.restaurant import load_menu
 
 
 

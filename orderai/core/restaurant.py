@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
+from orderai.paths import REPOSITORY_ROOT
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = REPOSITORY_ROOT
 RESTAURANTS_DIR = BASE_DIR / "restaurants"
 
 

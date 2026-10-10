@@ -1,4 +1,4 @@
-from agent import run_agent
+from orderai.core.agent import run_agent
 
 
 previous_response_id = None

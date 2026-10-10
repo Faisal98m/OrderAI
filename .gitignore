@@ -23,3 +23,18 @@ Notes/
 
 #database
 orderai.db
+# All local environments, secrets, SQLite and generated artifacts
+.env.*
+!.env.example
+.venv*/
+env/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tests/output/

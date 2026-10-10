@@ -1,8 +1,9 @@
 import re
-from typing import Optional
 import requests
+import fitz
+from typing import Optional
+from pypdf import PdfReader
 from bs4 import BeautifulSoup
-
 from flask import json
 
 
@@ -21,7 +22,95 @@ def clean_text(text: str) -> str:
         .replace("&amp;", "&")
         .strip()
     )
-    
+def extract_pdf_blocks(pdf_path: str) -> str:
+    """
+    Extract PDF text blocks with layout awareness.
+
+    PyMuPDF returns positioned text blocks, which lets us
+    reconstruct the page more reliably than plain text extraction.
+    """
+
+    document = fitz.open(pdf_path)
+
+    output = []
+
+    for page_number, page in enumerate(document, start=1):
+        output.append(f"--- PAGE {page_number} ---")
+
+        blocks = page.get_text("blocks")
+
+        # Each block roughly contains:
+        # x0, y0, x1, y1, text, ...
+        cleaned_blocks = []
+
+        for block in blocks:
+            x0, y0, x1, y1, text = block[:5]
+
+            text = text.strip()
+
+            if not text:
+                continue
+
+            cleaned_blocks.append({
+                "x0": x0,
+                "y0": y0,
+                "x1": x1,
+                "y1": y1,
+                "text": text,
+            })
+
+        # Sort roughly top-to-bottom,
+        # then left-to-right
+        cleaned_blocks.sort(
+            key=lambda b: (
+                round(b["y0"], 1),
+                round(b["x0"], 1),
+            )
+        )
+
+        for block in cleaned_blocks:
+            output.append(
+                f"[x={block['x0']:.1f}, y={block['y0']:.1f}] "
+                f"{block['text']}"
+            )
+
+        output.append("")
+
+    document.close()
+
+    return "\n".join(output)
+
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """
+    Extract text from a PDF while attempting to preserve
+    the document's visual layout.
+
+    This function only extracts content.
+    It does not interpret the menu structure.
+    """
+
+    reader = PdfReader(pdf_path)
+
+    pages = []
+
+    for page_number, page in enumerate(reader.pages, start=1):
+        try:
+            text = page.extract_text(
+                extraction_mode="layout"
+            )
+        except TypeError:
+            # Fallback for older pypdf versions
+            text = page.extract_text()
+
+        if not text:
+            continue
+
+        pages.append(
+            f"\n--- PAGE {page_number} ---\n{text.strip()}"
+        )
+
+    return "\n".join(pages)
+
 def extract_text_from_url(url: str) -> str:
     """
     Fetch a webpage and extract the most likely menu section.
@@ -378,7 +467,7 @@ def validate_imported_menu(menu: dict) -> dict:
         "blocking_issues": blocking_issues,
         "warnings": warnings,
     }
-    
+
 def update_item_price(menu: dict, item_id: str, price: float) -> bool:
     """
     Update the price of a menu item by item ID.
@@ -444,8 +533,8 @@ def review_missing_prices(menu: dict) -> dict:
 def save_menu(menu: dict, filepath: str) -> None:
     with open(filepath, "w", encoding="utf-8") as file:
         json.dump(menu, file, indent=2, ensure_ascii=False)
-        
-        
+
+
 
 def inspect_url_structure(url: str) -> None:
     headers = {

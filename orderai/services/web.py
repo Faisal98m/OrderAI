@@ -15,7 +15,11 @@ client = OpenAI(
 
 app = Flask(__name__, root_path=str(REPOSITORY_ROOT))
 
-app.secret_key = "dev-secret-key"
+app.secret_key = os.getenv("FLASK_SECRET_KEY") or os.urandom(32)
+app.config['MENU_EDITOR_ENABLED'] = os.getenv('ORDERAI_MENU_EDITOR_ENABLED') == '1'
+
+from orderai.services.menu_management import bp as menu_management_blueprint
+app.register_blueprint(menu_management_blueprint)
 
 
 
@@ -233,14 +237,7 @@ def admin_orders():
         orders=orders
     )
 
-if __name__ == "__main__":
-    init_db()
 
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
-    )
 
 @app.route(
     "/admin/orders/<int:order_id>/status",
@@ -261,3 +258,13 @@ def update_admin_order_status(order_id):
     )
 
     return jsonify(result)
+
+
+if __name__ == "__main__":
+    init_db()
+
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True
+    )

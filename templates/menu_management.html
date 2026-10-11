@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="menu-csrf" content="{{ csrf }}">
+  <title>Menu management · OrderAI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='menu_management.css') }}">
+  <script defer src="{{ url_for('static', filename='menu_management.js') }}"></script>
+</head>
+<body>
+<header><a class="brand" href="/admin/orders">Order<span>AI</span></a><span>Restaurant workspace</span><a href="/admin/orders">Orders</a></header>
+<main>
+  <div class="heading"><div><p class="eyebrow">MENU MANAGEMENT</p><h1>Your menu, ready for review.</h1><p class="muted">Review your products, fill in prices and save your progress.</p></div><span class="badge">Draft only</span></div>
+  <section class="toolbar" aria-label="Menu controls">
+    <label>Restaurant<select id="restaurant">{% for id, name in restaurants.items() %}<option value="{{ id }}">{{ name }}</option>{% endfor %}</select></label>
+    <div class="actions"><span id="save-state">Loading…</span><button id="validate" disabled>Check readiness</button><button id="save" class="primary" disabled>Save draft</button></div>
+  </section>
+  <p id="message" role="status" aria-live="polite"></p>
+  <section id="empty" hidden class="empty"><h2>No draft yet</h2><p>Start with a copy of this restaurant’s existing menu or its configured import. You can then review and edit the draft.</p><button id="initialise" class="primary">Initialise draft</button></section>
+  <div id="workspace" hidden>
+    <h2 id="restaurant-name"></h2>
+    <p id="currency-notice" class="hint" hidden>Currency is unconfirmed. GBP is proposed for price entry; explicit confirmation is required before publishing.</p>
+    <section class="stats" aria-label="Validation summary"><div><span>Total products</span><strong id="total">0</strong></div><div><span>Missing prices</span><strong id="missing">0</strong></div><div><span>Description warnings</span><strong id="warnings">0</strong></div><div><span>Readiness</span><strong id="ready">Needs review</strong></div></section>
+    <div class="layout"><nav id="categories" aria-label="Menu categories"></nav><div><div id="issues" aria-live="polite"></div><div id="products"></div></div></div>
+  </div>
+  <p class="footnote">Price entry uses GBP. Missing descriptions are warnings. Saving a draft does not publish your menu.</p>
+</main>
+<dialog id="switch-dialog" aria-labelledby="switch-title"><h2 id="switch-title">You have unsaved changes</h2><p>Your edits will stay here when you switch restaurants.<br>Save them before leaving this page.</p><form method="dialog"><button value="cancel">Keep editing</button><button value="switch" class="primary">Switch restaurant</button></form></dialog>
+</body></html>

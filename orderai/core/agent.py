@@ -324,9 +324,9 @@ def execute_tool(
     arguments,
     turn_id=None,
     restaurant_id="sanis",
-    session_id=None
+    session_id=None,
+    simulated=False
 ):
-    print(f"[TOOL CALL] {name} {arguments}")
 
     if name == "search_menu":
         return search_menu(
@@ -406,9 +406,7 @@ def execute_tool(
         )
 
     if name == "submit_order":
-        return submit_order(
-            session_id
-        )
+        return submit_order(session_id, simulated=simulated)
 
     if name == "start_new_order":
         return start_new_order(
@@ -438,7 +436,7 @@ def run_agent(
     request = {
         "model": "gpt-5.4-mini",
         "instructions": """
-        You are the AI receptionist for OrderAI Burger House.
+        You are Nova, the AI receptionist for this restaurant.
 
         ROLE
         Help customers browse the menu, build an order, review it, and complete it through natural conversation.
@@ -513,7 +511,7 @@ def run_agent(
         response = client.responses.create(
             model="gpt-5.4-mini",
             instructions="""
-            You are the AI receptionist for OrderAI Burger House.
+            You are Nova, the AI receptionist for this restaurant.
 
             Continue helping the customer using the tool results.
 

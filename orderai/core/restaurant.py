@@ -19,3 +19,15 @@ def load_menu(restaurant_id):
 
     with open(menu_path, "r", encoding="utf-8") as file:
         return json.load(file)
+
+def iter_menu_categories(menu):
+    """Read both published formats without changing their data or metadata."""
+    categories = menu["categories"]
+    if isinstance(categories, dict):
+        for name, items in categories.items():
+            yield name, items
+    elif isinstance(categories, list):
+        for category in categories:
+            yield category["name"], category["items"]
+    else:
+        raise ValueError("Unsupported menu categories")

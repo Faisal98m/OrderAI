@@ -1,0 +1,11 @@
+# Direct imports plus the production WSGI server.
+Flask==3.1.3
+openai==3.19.2
+requests==2.34.2
+python-dotenv==1.2.3
+twilio==9.11.2
+pymupdf==1.28.2
+pypdf==6.19.0
+beautifulsoup4==4.15.0
+pydantic==2.13.5
+gunicorn==26.2.0

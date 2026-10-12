@@ -3,7 +3,7 @@ import uuid
 from orderai.core.session_store import get_session_state
 from orderai.services.database import save_order
 from orderai.services.whatsapp import send_whatsapp_message
-from orderai.core.restaurant import load_menu
+from orderai.core.restaurant import load_menu, iter_menu_categories
 
 
 
@@ -113,7 +113,7 @@ def search_menu(search_term, restaurant_id):
     else:
         singular_term = search_term
 
-    for category_name, items in menu["categories"].items():
+    for category_name, items in iter_menu_categories(menu):
 
         category_matches = (
             search_term == category_name.lower()
@@ -125,7 +125,7 @@ def search_menu(search_term, restaurant_id):
 
             searchable_text = (
                 item["name"] + " "
-                + item["description"] + " "
+                + (item.get("description") or "") + " "
                 + aliases
             ).lower()
 
@@ -190,11 +190,18 @@ def add_item_to_order(
     description before changing the order.
     """
 
+    if type(quantity) is not int or not 1 <= quantity <= 20:
+        return {"status": "invalid_quantity", "message": "Quantity must be between 1 and 20."}
+
     state = get_session_state(
         session_id
     )
 
     order = state["order"]
+
+    locked = ensure_order_editable(session_id)
+    if locked:
+        return locked
 
     resolution = resolve_menu_item(
         search_term,
@@ -247,9 +254,9 @@ def add_item_to_order(
         session_id
     )
 
-    clear_pending_action(
-        session_id
-    )
+    if "items" not in updated_order:
+        return updated_order
+    clear_pending_action(session_id)
 
     return {
         "status": "added",
@@ -269,6 +276,9 @@ def add_to_order(
     session-specific order.
     """
 
+    if type(quantity) is not int or not 1 <= quantity <= 20:
+        return {"status": "invalid_quantity", "message": "Quantity must be between 1 and 20."}
+
     state = get_session_state(
         session_id
     )
@@ -287,7 +297,7 @@ def add_to_order(
     )
 
     for category_name, items in (
-        menu["categories"].items()
+        iter_menu_categories(menu)
     ):
 
         for item in items:
@@ -303,9 +313,9 @@ def add_to_order(
                         == item_id
                     ):
 
-                        order_item[
-                            "quantity"
-                        ] += quantity
+                        if order_item["quantity"] + quantity > 20:
+                            return {"status": "invalid_quantity", "message": "Maximum 20 per product."}
+                        order_item["quantity"] += quantity
 
                         mark_order_changed(
                             session_id
@@ -365,8 +375,15 @@ def remove_from_order(
     quantity=1,
     session_id=None
 ):
+    if type(quantity) is not int or not 1 <= quantity <= 20:
+        return {"status": "invalid_quantity", "message": "Quantity must be between 1 and 20."}
+
     state = get_session_state(session_id)
     order = state["order"]
+
+    locked = ensure_order_editable(session_id)
+    if locked:
+        return locked
 
     for item in order["items"]:
 
@@ -455,6 +472,10 @@ def remove_ingredient_from_order_item(
     state = get_session_state(session_id)
     order = state["order"]
 
+    locked = ensure_order_editable(session_id)
+    if locked:
+        return locked
+
     menu = load_menu(restaurant_id)
 
     ingredient = ingredient.lower().strip()
@@ -473,7 +494,7 @@ def remove_ingredient_from_order_item(
 
     menu_item = None
 
-    for category_name, items in menu["categories"].items():
+    for category_name, items in iter_menu_categories(menu):
         for item in items:
             if item["id"] == target_line["item_id"]:
                 menu_item = item
@@ -521,6 +542,10 @@ def modify_order_item(
     state = get_session_state(session_id)
     order = state["order"]
 
+    locked = ensure_order_editable(session_id)
+    if locked:
+        return locked
+
     search_term = search_term.lower().strip()
     ingredient = ingredient.lower().strip()
 
@@ -559,8 +584,15 @@ def split_order_line(
     copy_modifiers=True,
     session_id=None
 ):
+    if type(split_quantity) is not int or not 1 <= split_quantity <= 20:
+        return {"status": "invalid_quantity", "message": "Quantity must be between 1 and 20."}
+
     state = get_session_state(session_id)
     order = state["order"]
+
+    locked = ensure_order_editable(session_id)
+    if locked:
+        return locked
 
     for order_item in order["items"]:
 
@@ -617,6 +649,10 @@ def customize_order_item(
     state = get_session_state(session_id)
     order = state["order"]
 
+    locked = ensure_order_editable(session_id)
+    if locked:
+        return locked
+
     search_term = search_term.lower().strip()
     ingredient = ingredient.lower().strip()
 
@@ -652,7 +688,7 @@ def customize_order_item(
 
     menu_item = None
 
-    for category_name, items in menu["categories"].items():
+    for category_name, items in iter_menu_categories(menu):
         for item in items:
             if item["id"] == target_line["item_id"]:
                 menu_item = item
@@ -753,6 +789,10 @@ def customize_order_line(
     state = get_session_state(session_id)
     order = state["order"]
 
+    locked = ensure_order_editable(session_id)
+    if locked:
+        return locked
+
     target_line = None
 
     for order_item in order["items"]:
@@ -769,7 +809,7 @@ def customize_order_line(
 
     menu_item = None
 
-    for category_name, items in menu["categories"].items():
+    for category_name, items in iter_menu_categories(menu):
         for item in items:
             if item["id"] == target_line["item_id"]:
                 menu_item = item
@@ -846,6 +886,9 @@ def validate_order(
     state = get_session_state(session_id)
     order = state["order"]
 
+    if order["status"] not in ("building", "awaiting_confirmation"):
+        return {"status": "validation_not_allowed", "order_status": order["status"]}
+
     if len(order["items"]) == 0:
         return {
             "status": "invalid",
@@ -914,7 +957,8 @@ def confirm_order(
     }
     
 def submit_order(
-    session_id=None
+    session_id=None,
+    simulated=False
 ):
     state = get_session_state(session_id)
     order = state["order"]
@@ -925,13 +969,16 @@ def submit_order(
             "order_status": order["status"]
         }
 
-    order["status"] = "submitted"
+    if simulated:
+        order["status"] = "submitted"
+        return {"status": "submitted", "simulated": True,
+                "message": "Demo completed. No real order was sent.",
+                "order": get_order(session_id)}
 
     current_order = get_order(session_id)
-
-    order_id = save_order(
-        current_order
-    )
+    current_order["status"] = "submitted"
+    order_id = save_order(current_order)
+    order["status"] = "submitted"
 
     summary_lines = []
 

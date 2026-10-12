@@ -3,7 +3,6 @@ sessions = {}
 
 def get_session_state(session_id):
 
-    print("SESSION STORE ID:", session_id)
 
     if session_id is None:
         session_id = "default"

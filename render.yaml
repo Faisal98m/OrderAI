@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: nova-sanis-demo
+    runtime: python
+    plan: starter
+    numInstances: 1
+    autoDeployTrigger: "off"
+    buildCommand: python -m pip install --only-binary=:all: -r requirements.txt
+    startCommand: gunicorn --config gunicorn.conf.py orderai.services.production:app
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: ORDERAI_DEMO_ENABLED
+        value: "1"
+      - key: ORDERAI_MENU_EDITOR_ENABLED
+        value: "0"
+      - key: PYTHON_DOTENV_DISABLED
+        value: "1"
+      - key: GUNICORN_CMD_ARGS
+        value: ""
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: ORDERAI_DEMO_ACCESS_CODE
+        sync: false
+      - key: FLASK_SECRET_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

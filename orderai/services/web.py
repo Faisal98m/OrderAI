@@ -16,6 +16,17 @@ client = OpenAI(
 app = Flask(__name__, root_path=str(REPOSITORY_ROOT))
 
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or os.urandom(32)
+app.config.update(
+    DEMO_ENABLED=os.getenv("ORDERAI_DEMO_ENABLED") == "1",
+    DEMO_ACCESS_CODE=os.getenv("ORDERAI_DEMO_ACCESS_CODE", ""),
+    DEMO_CALL_SECONDS=600,
+    DEMO_IDLE_SECONDS=45,
+    DEMO_RETAIN_SECONDS=1800,
+    DEMO_MAX_ACTIVE=8,
+    MAX_CONTENT_LENGTH=(2 * 1024 * 1024 if os.getenv("ORDERAI_DEMO_ENABLED") == "1" else None),
+)
+from orderai.services.demo import bp as demo_blueprint, demo_home, demo_tool, demo_credential
+app.register_blueprint(demo_blueprint)
 app.config['MENU_EDITOR_ENABLED'] = os.getenv('ORDERAI_MENU_EDITOR_ENABLED') == '1'
 
 from orderai.services.menu_management import bp as menu_management_blueprint
@@ -23,8 +34,16 @@ app.register_blueprint(menu_management_blueprint)
 
 
 
+@app.get("/healthz")
+def health():
+    # No model requests, credentials, database access or sessions.
+    return jsonify(status="ok")
+
+
 @app.route("/")
 def home():
+    if app.config["DEMO_ENABLED"]:
+        return demo_home()
 
     restaurant_id = request.args.get(
         "restaurant",
@@ -41,11 +60,13 @@ def home():
 
     session["restaurant_id"] = restaurant_id
 
-    return render_template("index.html")
+    return render_template("legacy_index.html")
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    if app.config["DEMO_ENABLED"]:
+        return jsonify(error="Text chat is disabled in the voice demo."), 403
 
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
@@ -92,6 +113,8 @@ def chat():
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
+    if app.config["DEMO_ENABLED"]:
+        return jsonify(error="File transcription is disabled in the voice demo."), 403
 
     if "audio" not in request.files:
         return jsonify({
@@ -138,8 +161,12 @@ def transcribe():
 
         os.remove(temp_path)
 
-@app.route("/realtime-session", methods=["GET"])
+@app.route("/realtime-session", methods=["GET", "POST"])
 def realtime_session():
+    if app.config["DEMO_ENABLED"]:
+        return demo_credential()
+    if request.method != "GET":
+        return jsonify(error="Use GET outside demo mode."), 405
 
     session_config = {
         "session": {
@@ -167,6 +194,8 @@ def realtime_session():
 
 @app.route("/realtime-tool", methods=["POST"])
 def realtime_tool():
+    if app.config["DEMO_ENABLED"]:
+        return demo_tool()
 
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
@@ -220,6 +249,8 @@ def realtime_tool():
 
 @app.route("/admin/orders-data", methods=["GET"])
 def admin_orders_data():
+    if app.config["DEMO_ENABLED"]:
+        return jsonify(error="Unavailable in demo mode."), 404
 
     orders = get_all_orders()
 
@@ -229,6 +260,8 @@ def admin_orders_data():
 
 @app.route("/admin/orders", methods=["GET"])
 def admin_orders():
+    if app.config["DEMO_ENABLED"]:
+        return jsonify(error="Unavailable in demo mode."), 404
 
     orders = get_all_orders()
 
@@ -244,6 +277,8 @@ def admin_orders():
     methods=["POST"]
 )
 def update_admin_order_status(order_id):
+    if app.config["DEMO_ENABLED"]:
+        return jsonify(error="Unavailable in demo mode."), 404
 
     data = request.get_json()
 
@@ -261,10 +296,6 @@ def update_admin_order_status(order_id):
 
 
 if __name__ == "__main__":
-    init_db()
-
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
-    )
+    from orderai.services.production_config import initialise_storage
+    initialise_storage(app)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)

@@ -28,10 +28,12 @@ class ProjectStructureTests(unittest.TestCase):
             item.stop()
 
     def test_original_flask_routes_and_templates(self):
-        expected = {"/", "/chat", "/transcribe", "/realtime-session", "/realtime-tool",
+        expected = {"/healthz", "/", "/chat", "/transcribe", "/realtime-session", "/realtime-tool",
                     "/admin/orders", "/admin/orders-data", "/admin/orders/<int:order_id>/status", "/static/<path:filename>"}
         expected.update({'/admin/menu', '/admin/menu-api/<restaurant>/draft',
                          '/admin/menu-api/<restaurant>/initialise', '/admin/menu-api/<restaurant>/validate'})
+        expected.update({'/demo/calls', '/demo/calls/<identity>',
+                         '/demo/calls/<identity>/heartbeat', '/demo/calls/<identity>/end'})
         self.assertEqual({r.rule for r in self.web.app.url_map.iter_rules()}, expected)
         self.assertEqual(Path(self.web.app.root_path), REPOSITORY_ROOT)
         client = self.web.app.test_client()

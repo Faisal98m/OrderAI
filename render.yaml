@@ -2,10 +2,11 @@ services:
   - type: web
     name: nova-sanis-demo
     runtime: python
+    branch: feature/nova-demo
     plan: starter
     numInstances: 1
     autoDeployTrigger: "off"
-    buildCommand: python -m pip install --only-binary=:all: -r requirements.txt
+    buildCommand: "python -m pip install --only-binary=:all: -r requirements.txt"
     startCommand: gunicorn --config gunicorn.conf.py orderai.services.production:app
     healthCheckPath: /healthz
     envVars:

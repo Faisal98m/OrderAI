@@ -239,7 +239,7 @@ if (typeof document !== "undefined") {
     const sizeMenuWindow = () => {
       // Use the document position so page scrolling cannot change the panel height.
       const top = menuPanel.getBoundingClientRect().top + window.scrollY;
-      menuPanel.style.setProperty("--menu-top", `${top}px`);
+      menuPanel.closest(".demo-layout").style.setProperty("--menu-top", `${top}px`);
     };
     sizeMenuWindow();
     window.addEventListener("resize", sizeMenuWindow);

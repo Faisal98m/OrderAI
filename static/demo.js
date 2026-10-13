@@ -232,6 +232,18 @@ class DemoCallController {
 
 if (typeof module !== "undefined") module.exports = {DemoCallController, browserTimers};
 if (typeof document !== "undefined") {
+  // Category jumps stay inside the menu window, leaving its controls in place.
+  const menuItems = document.querySelector(".menu-items");
+  document.querySelector(".category-nav")?.addEventListener("click", event => {
+    const link = event.target.closest("a");
+    if (!link || !menuItems || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const category = document.getElementById(link.hash.slice(1));
+    if (!category || !menuItems.contains(category)) return;
+    event.preventDefault();
+    menuItems.scrollTo({top: menuItems.scrollTop + category.getBoundingClientRect().top
+      - menuItems.getBoundingClientRect().top - 4});
+    menuItems.focus({preventScroll: true});
+  });
   const csrf = document.querySelector('meta[name="demo-csrf"]').content;
   const start = document.getElementById("start-call");
   const end = document.getElementById("end-call");

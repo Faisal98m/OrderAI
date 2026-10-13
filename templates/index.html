@@ -22,6 +22,7 @@
       <nav class="category-nav" aria-label="Menu categories">
         {% for group in groups %}<a href="#category-{{ loop.index }}">{{ group.name }}</a>{% endfor %}
       </nav>
+      <div class="menu-items" tabindex="0" role="region" aria-label="Menu items">
       {% for group in groups %}
       <section class="category" id="category-{{ loop.index }}" aria-labelledby="heading-{{ loop.index }}">
         <h3 id="heading-{{ loop.index }}">{{ group.name }}</h3>
@@ -36,6 +37,7 @@
         </div>
       </section>
       {% endfor %}
+      </div>
     </section>
     <aside class="receptionist-panel" aria-labelledby="receptionist-heading">
       <section class="call-card">

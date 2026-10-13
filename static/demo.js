@@ -234,6 +234,20 @@ if (typeof module !== "undefined") module.exports = {DemoCallController, browser
 if (typeof document !== "undefined") {
   // Category jumps stay inside the menu window, leaving its controls in place.
   const menuItems = document.querySelector(".menu-items");
+  const menuPanel = document.querySelector(".menu-panel");
+  if (menuPanel) {
+    const sizeMenuWindow = () => {
+      // Use the document position so page scrolling cannot change the panel height.
+      const top = menuPanel.getBoundingClientRect().top + window.scrollY;
+      menuPanel.style.setProperty("--menu-top", `${top}px`);
+    };
+    sizeMenuWindow();
+    window.addEventListener("resize", sizeMenuWindow);
+    if (typeof ResizeObserver !== "undefined") {
+      const headerObserver = new ResizeObserver(sizeMenuWindow);
+      document.querySelectorAll(".site-header, .demo-notice").forEach(element => headerObserver.observe(element));
+    }
+  }
   document.querySelector(".category-nav")?.addEventListener("click", event => {
     const link = event.target.closest("a");
     if (!link || !menuItems || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

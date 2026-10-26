@@ -1,0 +1,52 @@
+{
+  "categories": {
+    "burgers": [
+      {
+        "description": "Chicken burger",
+        "id": "BS001",
+        "ingredients": [
+          "chicken",
+          "lettuce",
+          "sauce"
+        ],
+        "name": "Chicken Burger",
+        "price": 7.99
+      },
+      {
+        "description": "Beef burger",
+        "id": "BS002",
+        "ingredients": [
+          "beef patty",
+          "lettuce",
+          "sauce"
+        ],
+        "name": "Beef Burger",
+        "price": 8.49
+      }
+    ],
+    "drinks": [
+      {
+        "aliases": [
+          "coke",
+          "cola",
+          "coca cola"
+        ],
+        "description": "330ml can",
+        "id": "BS201",
+        "name": "Coca-Cola",
+        "price": 1.99
+      }
+    ],
+    "sides": [
+      {
+        "description": "Fries",
+        "id": "BS101",
+        "name": "Fries",
+        "price": 2.99
+      }
+    ]
+  },
+  "currency": "GBP",
+  "currency_symbol": "£",
+  "restaurant": "Burger & Sauce"
+}

@@ -310,11 +310,41 @@ def demo_credential():
             headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json',
                      'OpenAI-Safety-Identifier': hashlib.sha256(call.owner.encode()).hexdigest()},
             json={'session': realtime_config()}, timeout=(5, 20))
+        current_app.logger.info(
+            'Realtime credential request: status=%s request_id=%s',
+            response.status_code,
+            response.headers.get('x-request-id', 'unknown'),
+        )
+        if not response.ok:
+            error_type = 'unknown'
+            error_code = 'unknown'
+            try:
+                error_body = response.json()
+                if isinstance(error_body, dict):
+                    upstream_error = error_body.get('error', {})
+                    if isinstance(upstream_error, dict):
+                        error_type = str(upstream_error.get('type', 'unknown'))[:100]
+                        error_code = str(upstream_error.get('code', 'unknown'))[:100]
+            except ValueError:
+                pass
+            current_app.logger.error(
+                'Realtime API rejected request: status=%s type=%s code=%s',
+                response.status_code, error_type, error_code,
+            )
+            raise ValueError('Realtime API rejected request')
         data = response.json()
-        if not response.ok or not isinstance(data, dict) or not isinstance(data.get('value'), str):
+        if not isinstance(data, dict) or not isinstance(data.get('value'), str):
+            current_app.logger.error('Realtime API returned unexpected credential structure')
             raise ValueError('Invalid upstream credential response')
-    except (requests.RequestException, ValueError):
-        raise DemoError('voice_unavailable', 'Voice connection could not be started. Please try a new call.', 502)
+    except (requests.RequestException, ValueError) as exc:
+        current_app.logger.error(
+            'Realtime session setup failed: exception=%s', type(exc).__name__
+        )
+        raise DemoError(
+            'voice_unavailable',
+            'Voice connection could not be started. Please try a new call.',
+            502,
+        )
     with call.lock:
         require_active(call)
         call.touched = time.monotonic()
